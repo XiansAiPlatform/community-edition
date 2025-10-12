@@ -5,6 +5,40 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.10.0] - 2025-10-12
+
+### 🚀 New Features
+
+- **System scoped agent templates**: [read more](https://xiansaiplatform.github.io/XiansAi.PublicDocs/n-encyclopedia/system-scoped-agents/)
+- **Scheduled agents**: [Setting up](https://xiansaiplatform.github.io/XiansAi.PublicDocs/4-automation/2-flow-scheduling/)
+- **Scheduling SDK**: [SDK](https://xiansaiplatform.github.io/XiansAi.PublicDocs/4-automation/2-scheduling-sdk/)
+
+### 🔧 Improvements
+
+- **UI/UX**: Improved Messaging Playground UI in portal
+
+### 🎯 What's Next
+
+- Planned features for next release
+- Roadmap items in progress
+- Community feature requests being considered
+
+---
+
+**Full Changelog**: https://github.com/XiansAiPlatform/community-edition/compare/vPREVIOUS...v2.10.0
+**Docker Images**: Available with tag `v2.10.0`
+**Documentation**: See updated documentation in repository
+
+<!-- 
+INSTRUCTIONS FOR EDITING THIS TEMPLATE:
+1. Replace placeholder text with actual changes
+2. Remove sections that don't apply to this release
+3. Add specific version numbers and dates where needed
+4. Include links to relevant PRs, issues, or documentation
+5. Test all code examples and commands
+6. Review for clarity and completeness before release
+-->
+
 ## [v2.9.0] - 2025-10-03
 
 ### 🚀 New Features
