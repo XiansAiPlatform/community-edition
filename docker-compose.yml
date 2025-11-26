@@ -2,6 +2,26 @@
 # Version-based configuration via .env files
 
 services:
+  # Aspire Dashboard for Development Observability
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
+    container_name: xians-aspire-dashboard
+    restart: unless-stopped
+    ports:
+      - "${ASPIRE_DASHBOARD_PORT:-18888}:18888"  # Dashboard UI
+      - "${ASPIRE_OTLP_PORT:-18889}:18889"       # OTLP endpoint
+    environment:
+      - ASPNETCORE_URLS=http://+:18888
+      - DOTNET_DASHBOARD_OTLP_ENDPOINT_URL=http://+:18889
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+    networks:
+      - xians-community-edition
+    logging:
+      driver: ${LOGGING_DRIVER:-local}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: ${LOG_MAX_FILE:-2}
+
   mongodb:
     image: mongo:8.0
     container_name: xians-mongodb
