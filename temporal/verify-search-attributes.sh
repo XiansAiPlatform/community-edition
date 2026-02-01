@@ -26,7 +26,7 @@ echo ""
 echo "🎯 Checking for required search attributes:"
 
 # Check for specific required attributes
-required_attrs=("tenantId" "userId" "agent")
+required_attrs=("tenantId" "userId" "agent" "idPostfix")
 all_found=true
 
 for attr in "${required_attrs[@]}"; do

@@ -259,6 +259,30 @@
       ],
       "notBefore": 0,
       "groups": []
+    },
+    {
+      "id": "user",
+      "username": "user",
+      "enabled": true,
+      "totp": false,
+      "emailVerified": true,
+      "firstName": "User",
+      "lastName": "User",
+      "email": "user@xiansai.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user",
+          "temporary": false
+        }
+      ],
+      "disableableCredentialTypes": [],
+      "requiredActions": [],
+      "realmRoles": [
+        "default-roles-xiansai"
+      ],
+      "notBefore": 0,
+      "groups": []
     }
   ],
   "roles": {

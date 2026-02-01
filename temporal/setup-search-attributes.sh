@@ -83,6 +83,14 @@ setup_search_attributes() {
         echo "  ✓ agent search attribute already exists"
     fi
     
+    if ! echo "$existing_attrs" | grep -q "idPostfix"; then
+        echo "  - idPostfix needs to be added"
+        missing_names+=("idPostfix")
+        missing_types+=("Keyword")
+    else
+        echo "  ✓ idPostfix search attribute already exists"
+    fi
+    
     # Add all missing attributes in one command if any are missing
     if [ ${#missing_names[@]} -gt 0 ]; then
         echo "  + Adding ${#missing_names[@]} search attribute(s) to Elasticsearch..."
