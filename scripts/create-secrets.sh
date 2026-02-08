@@ -179,6 +179,7 @@ echo "🔑 Generating server encryption keys..."
 ENCRYPTION_BASE_SECRET=$(generate_base64_secret 64)
 CONVERSATION_MESSAGE_KEY=$(generate_base64_secret 32)
 TENANT_OIDC_SECRET_KEY=$(generate_base64_secret 32)
+APP_INTEGRATION_SECRET_KEY=$(generate_base64_secret 32)
 
 # Generate Temporal UI client secret
 echo "⏰ Generating Temporal UI client secret..."
@@ -248,6 +249,7 @@ if service_needs_secrets "server"; then
     update_env_file "server/.env.local" "EncryptionKeys__BaseSecret" "$ENCRYPTION_BASE_SECRET"
     update_env_file "server/.env.local" "EncryptionKeys__UniqueSecrets__ConversationMessageKey" "$CONVERSATION_MESSAGE_KEY"
     update_env_file "server/.env.local" "EncryptionKeys__UniqueSecrets__TenantOidcSecretKey" "$TENANT_OIDC_SECRET_KEY"
+    update_env_file "server/.env.local" "EncryptionKeys__UniqueSecrets__AppIntegrationSecretKey" "$APP_INTEGRATION_SECRET_KEY"
 
     echo "📝 Updating server CORS configuration..."
     update_env_file "server/.env.local" "Cors__AllowedOrigins__1" "$XIANSUI_HOST"

@@ -6,6 +6,8 @@
 # - XiansAi.UI (Docker Hub) 
 # - XiansAi.Lib (NuGet)
 # - sdk-web-typescript (npm)
+# - agent-studio (Docker Hub)
+# - XiansAi.Docs (GitHub Pages)
 # - community-edition (GitHub Release)
 
 set -e
@@ -17,6 +19,8 @@ REPOS_CONFIG=(
     "../XiansAi.UI|XiansAi.UI|docker|hub.docker.com/r/99xio/xiansai-ui"
     "../XiansAi.Lib|XiansAi.Lib|nuget|nuget.org/packages/XiansAi.Lib"
     "../sdk-web-typescript|sdk-web-typescript|npm|npmjs.com/package/@99xio/xians-sdk-typescript"
+    "../agent-studio|agent-studio|docker|hub.docker.com/r/99xio/agent-studio"
+    "../XiansAi.Docs|XiansAi.Docs|docs|xiansaiplatform.github.io/XiansAi.Docs"
 )
 
 # Colors for output
@@ -86,6 +90,8 @@ REPOSITORIES:
     XiansAi.UI          → Docker Hub (99xio/xiansai-ui)
     XiansAi.Lib         → NuGet (XiansAi.Lib)
     sdk-web-typescript  → npm (@99xio/xians-sdk-typescript)
+    agent-studio        → Docker Hub (99xio/agent-studio)
+    XiansAi.Docs        → GitHub Pages (xiansaiplatform.github.io/XiansAi.Docs)
 
 WORKFLOW:
     1. Run this script to publish all artifacts
@@ -225,6 +231,12 @@ get_workflow_url() {
         "sdk-web-typescript")
             echo "https://github.com/XiansAiPlatform/sdk-web-typescript/actions/workflows/publish-npm.yml"
             ;;
+        "agent-studio")
+            echo "https://github.com/XiansAiPlatform/agent-studio/actions/workflows/dockerhub-deploy.yml"
+            ;;
+        "XiansAi.Docs")
+            echo "https://github.com/XiansAiPlatform/XiansAi.Docs/actions/workflows/deploy.yml"
+            ;;
         *)
             echo "https://github.com/XiansAiPlatform/$repo_name/actions"
             ;;
@@ -301,6 +313,9 @@ show_publishing_summary() {
             "npm")
                 echo "📦 $repo_name → https://$registry_url/v/$version"
                 ;;
+            "docs")
+                echo "📚 $repo_name → https://$registry_url"
+                ;;
         esac
     done
     
@@ -338,6 +353,7 @@ verify_artifacts() {
     log_info "Docker images will be available at:"
     echo "  - docker pull 99xio/xiansai-server:$version"
     echo "  - docker pull 99xio/xiansai-ui:$version"
+    echo "  - docker pull 99xio/agent-studio:$version"
     
     # NuGet package (can check via API)
     log_info "NuGet package will be available at:"
@@ -353,6 +369,7 @@ verify_artifacts() {
     echo "# Check Docker images"
     echo "docker manifest inspect 99xio/xiansai-server:$version"
     echo "docker manifest inspect 99xio/xiansai-ui:$version"
+    echo "docker manifest inspect 99xio/agent-studio:$version"
     echo
     echo "# Check NuGet package"
     echo "curl -s https://api.nuget.org/v3-flatcontainer/xiansai.lib/index.json | grep '$clean_version'"

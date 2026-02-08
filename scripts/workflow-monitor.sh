@@ -11,6 +11,8 @@ REPOS=(
     "XiansAiPlatform/XiansAi.UI"
     "XiansAiPlatform/XiansAi.Lib"
     "XiansAiPlatform/sdk-web-typescript"
+    "XiansAiPlatform/agent-studio"
+    "XiansAiPlatform/XiansAi.Docs"
 )
 
 WORKFLOWS=(
@@ -18,6 +20,8 @@ WORKFLOWS=(
     "dockerhub-deploy.yml"
     "nuget-publish.yml"
     "publish-npm.yml"
+    "dockerhub-deploy.yml"
+    "deploy.yml"
 )
 
 # Colors for output

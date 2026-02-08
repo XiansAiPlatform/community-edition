@@ -171,13 +171,15 @@ The XiansAi Platform consists of multiple repositories, each with its own artifa
 
 ### Repository Structure
 
-| Repository | Artifact Type | Registry | Image/Package Name |
-|------------|---------------|----------|-------------------|
-| **XiansAi.Server** | Docker Image | Docker Hub | `99xio/xiansai-server` |
-| **XiansAi.UI** | Docker Image | Docker Hub | `99xio/xiansai-ui` |
-| **XiansAi.Lib** | NuGet Package | NuGet.org | `XiansAi.Lib` |
-| **sdk-web-typescript** | npm Package | npmjs.com | `@99xio/xians-sdk-typescript` |
-| **community-edition** | GitHub Release | GitHub | Community distribution |
+| Repository | Artifact Type | Registry | Image/Package Name | Description |
+|------------|---------------|----------|-------------------|-------------|
+| **XiansAi.Server** | Docker Image | Docker Hub | `99xio/xiansai-server` | Core API server |
+| **XiansAi.UI** | Docker Image | Docker Hub | `99xio/xiansai-ui` | Admin/Developer portal UI |
+| **XiansAi.Lib** | NuGet Package | NuGet.org | `XiansAi.Lib` | .NET SDK library |
+| **sdk-web-typescript** | npm Package | npmjs.com | `@99xio/xians-sdk-typescript` | TypeScript SDK |
+| **agent-studio** | Docker Image | Docker Hub | `99xio/agent-studio` | End-user interface for agent interaction |
+| **XiansAi.Docs** | GitHub Pages | GitHub Pages | xiansaiplatform.github.io/XiansAi.Docs | Platform documentation site |
+| **community-edition** | GitHub Release | GitHub | Community distribution | Complete platform distribution |
 
 ### Publishing Flow
 
@@ -188,19 +190,25 @@ graph TD
     B --> D[Tag XiansAi.UI]
     B --> E[Tag XiansAi.Lib]
     B --> F[Tag sdk-web-typescript]
+    B --> G[Tag agent-studio]
+    B --> H[Tag XiansAi.Docs]
     
-    C --> G[Docker Hub: xiansai-server]
-    D --> H[Docker Hub: xiansai-ui]
-    E --> I[NuGet: XiansAi.Lib]
-    F --> J[npm: @99xio/xians-sdk-typescript]
+    C --> I[Docker Hub: xiansai-server]
+    D --> J[Docker Hub: xiansai-ui]
+    E --> K[NuGet: XiansAi.Lib]
+    F --> L[npm: @99xio/xians-sdk-typescript]
+    G --> M[Docker Hub: agent-studio]
+    H --> N[GitHub Pages: XiansAi.Docs]
     
-    G --> K[Monitor Workflows]
-    H --> K
-    I --> K
-    J --> K
+    I --> O[Monitor Workflows]
+    J --> O
+    K --> O
+    L --> O
+    M --> O
+    N --> O
     
-    K --> L[Run release.sh]
-    L --> M[GitHub Release: community-edition]
+    O --> P[Run release.sh]
+    P --> Q[GitHub Release: community-edition]
 ```
 
 ## 📝 Release Notes Guidelines
@@ -337,6 +345,12 @@ All Docker images support:
 - **linux/amd64** - Standard x86_64 architecture
 - **linux/arm64** - ARM64 architecture (Apple Silicon, ARM servers)
 
+### Available Docker Images
+
+- **99xio/xiansai-server**: Core API server and backend services
+- **99xio/xiansai-ui**: Administrative and developer portal interface
+- **99xio/agent-studio**: End-user interface for agent interaction and management
+
 ### Image Validation
 
 The publish script validates Docker images by:
@@ -393,6 +407,15 @@ Each repository has automated workflows that trigger on version tags:
 - **Actions**: Build multi-arch images, push to Docker Hub
 - **Artifacts**: Docker images with semantic versioning
 
+#### agent-studio
+
+- **Workflow**: `dockerhub-deploy.yml`
+- **Triggers**: Version tags (`v*`)
+- **Actions**: Build multi-arch images, push to Docker Hub
+- **Artifacts**: Docker images with semantic versioning
+- **Description**: End-user interface that allows users to sign in and interact with AI agents directly
+- **Target Audience**: End users who want to use the AI agents through a web interface
+
 #### XiansAi.Lib
 
 - **Workflow**: `nuget-publish.yml`
@@ -406,6 +429,15 @@ Each repository has automated workflows that trigger on version tags:
 - **Triggers**: Version tags (`v*`)
 - **Actions**: Build, test, publish to npm
 - **Artifacts**: npm packages
+
+#### XiansAi.Docs
+
+- **Workflow**: `deploy.yml`
+- **Triggers**: Version tags (`v*`)
+- **Actions**: Build MkDocs site, deploy to GitHub Pages
+- **Artifacts**: Documentation website
+- **Description**: Official platform documentation built with MkDocs and Material theme
+- **Target Audience**: Developers, users, and contributors who need comprehensive platform documentation
 
 ### Workflow Monitoring
 
@@ -472,7 +504,7 @@ The `workflow-monitor.sh` script provides:
 
 ```bash
 # Check repository locations
-ls -la ../XiansAi.Server ../XiansAi.UI ../XiansAi.Lib ../sdk-web-typescript
+ls -la ../XiansAi.Server ../XiansAi.UI ../XiansAi.Lib ../sdk-web-typescript ../agent-studio ../XiansAi.Docs
 
 # Verify git status across repos
 ./scripts/publish.sh v2.1.0 --dry-run
@@ -492,6 +524,8 @@ gh auth login
 
 # Test workflow access
 gh run list --repo XiansAiPlatform/XiansAi.Server
+gh run list --repo XiansAiPlatform/agent-studio
+gh run list --repo XiansAiPlatform/XiansAi.Docs
 ```
 
 **Missing release notes:**
