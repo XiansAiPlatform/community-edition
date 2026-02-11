@@ -52,7 +52,7 @@ services:
       - ES_SEEDS=elasticsearch
       - ES_VERSION=v7
       - ES_VIS_INDEX=temporal_visibility_v1_dev
-      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_ADDRESS=temporal:7233 
       - TEMPORAL_CLI_ADDRESS=temporal:7233
     depends_on:
       elasticsearch:

@@ -144,6 +144,13 @@ find . -name ".env.local" -type f
 # - keycloak/.env.local
 # - temporal/.env.local
 ```
+Manually create a .env file in the root of the community-edition cloned repo and then run the  ./start-all.sh command it will create the following files .
+# - server/.env.local
+# - ui/.env.local
+# - postgresql/.env.local
+# - keycloak/.env.local
+# - temporal/.env.local
+
 
 **Note**: The `.env.local` files are already included in the repository and contain the community edition configuration. You only need to set your OpenAI API key in `server/.env.local`.
 
@@ -219,6 +226,8 @@ This script will:
 - Wait for services to be healthy
 - Display access URLs
 
+
+
 ### 2. Advanced Start Options
 ```bash
 # Start with specific version
@@ -280,6 +289,8 @@ Once all services are running, you can access them at:
 ## 🔍 Troubleshooting
 
 ### Common Issues and Solutions
+
+
 
 #### 1. Container Name Conflicts
 
@@ -376,6 +387,12 @@ cat .env.local
 # If missing, create it:
 echo "Llm__ApiKey=your-actual-api-key" > .env.local
 ```
+
+#### 8. Error when starting MongoDB server in windows 
+
+
+**Solution**: error in MongoDB can be resolved by changing the line sequence to LF from CRLF in mongo-startup.sh File 
+
 
 ### Health Check Commands
 
