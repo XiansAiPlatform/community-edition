@@ -5,6 +5,34 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.11.0] - 2026-02-17
+
+### 🚀 New Features
+
+- This release contains mainly fixes and improvements.
+
+### 🎯 What's Next
+
+- Planned features for next release
+- Roadmap items in progress
+- Community feature requests being considered
+
+---
+
+**Full Changelog**: https://github.com/XiansAiPlatform/community-edition/compare/vPREVIOUS...v3.11.0
+**Docker Images**: Available with tag `v3.11.0`
+**Documentation**: See updated documentation in repository
+
+<!-- 
+INSTRUCTIONS FOR EDITING THIS TEMPLATE:
+1. Replace placeholder text with actual changes
+2. Remove sections that don't apply to this release
+3. Add specific version numbers and dates where needed
+4. Include links to relevant PRs, issues, or documentation
+5. Test all code examples and commands
+6. Review for clarity and completeness before release
+-->
+
 ## [v2.11.0] - 2025-10-26
 
 ### 🚀 New Features
