@@ -26,6 +26,30 @@ services:
         max-size: ${LOG_MAX_SIZE:-10m}
         max-file: ${LOG_MAX_FILE:-2}
 
+  # OpenTelemetry Collector for forwarding telemetry to Azure Application Insights.
+  # Start with: docker compose --profile observability-azure up -d otel-collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: xians-otel-collector
+    profiles:
+      - observability-azure
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    ports:
+      - "4317:4317" # OTLP gRPC ingest
+      - "4318:4318" # OTLP HTTP ingest (optional)
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    environment:
+      - APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING}
+    networks:
+      - xians-community-edition
+    logging:
+      driver: ${LOGGING_DRIVER:-local}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: ${LOG_MAX_FILE:-2}
+
   mongodb:
     image: mongo:8.0
     container_name: xians-mongodb

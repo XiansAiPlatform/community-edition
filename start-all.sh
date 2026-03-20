@@ -32,6 +32,7 @@ fi
 DETACHED=true
 SKIP_KEYCLOAK=false
 OBSERVABILITY=false
+OBSERVABILITY_AZURE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -51,6 +52,10 @@ while [[ $# -gt 0 ]]; do
             OBSERVABILITY=true
             shift
             ;;
+        --observability-azure)
+            OBSERVABILITY_AZURE=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [options]"
             echo "Options:"
@@ -58,6 +63,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -d, --detached           Run in detached mode (default)"
             echo "  --skip-keycloak          Skip Keycloak service deployment"
             echo "  --observability          Start Aspire Dashboard for OTel traces/metrics/logs"
+            echo "  --observability-azure    Start OTEL Collector for Azure App Insights export"
             echo "  -h, --help               Show this help message"
             echo ""
             echo "Examples:"
@@ -65,6 +71,7 @@ while [[ $# -gt 0 ]]; do
             echo "  $0 -v v2.0.2                  # Start with specific version"
             echo "  $0 --skip-keycloak            # Start without Keycloak service"
             echo "  $0 --observability            # Start with Aspire Dashboard"
+            echo "  $0 --observability-azure      # Start with OTEL Collector -> Azure App Insights"
             echo "  $0 -v v2.0.2 --skip-keycloak  # Start with specific version, no Keycloak"
             exit 0
             ;;
@@ -145,6 +152,15 @@ else
     echo "ℹ️  Observability (Aspire Dashboard) skipped — use --observability to enable"
 fi
 
+# Start OTEL Collector for Azure export (optional — enabled via --observability-azure flag)
+if [ "$OBSERVABILITY_AZURE" = true ]; then
+    echo "☁️  Starting OTEL Collector for Azure App Insights export..."
+    docker compose --profile observability-azure up -d otel-collector
+    echo "✅ OTEL Collector started (OTLP gRPC: localhost:4317)"
+else
+    echo "ℹ️  Azure observability collector skipped — use --observability-azure to enable"
+fi
+
 # Start Temporal services with environment configuration
 echo "⚡ Starting Temporal services..."
 docker compose -p $COMPOSE_PROJECT_NAME -f temporal/docker-compose.yml --env-file temporal/.env.local up -d
@@ -178,6 +194,9 @@ echo "  • MongoDB:                localhost:27017"
 echo "  • Temporal PostgreSQL:    localhost:5432"
 if [ "$OBSERVABILITY" = true ]; then
     echo "  • Aspire Dashboard:       http://localhost:18888  (traces, metrics, logs)"
+fi
+if [ "$OBSERVABILITY_AZURE" = true ]; then
+    echo "  • OTEL Collector gRPC:    localhost:4317          (for Azure export)"
 fi
 echo ""
 echo "�� Useful commands:"
