@@ -31,6 +31,7 @@ fi
 # Parse command line arguments
 DETACHED=true
 SKIP_KEYCLOAK=false
+OBSERVABILITY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -46,19 +47,25 @@ while [[ $# -gt 0 ]]; do
             SKIP_KEYCLOAK=true
             shift
             ;;
+        --observability)
+            OBSERVABILITY=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [options]"
             echo "Options:"
             echo "  -v, --version VERSION    Docker image version (default: latest)"
             echo "  -d, --detached           Run in detached mode (default)"
             echo "  --skip-keycloak          Skip Keycloak service deployment"
+            echo "  --observability          Start Aspire Dashboard for OTel traces/metrics/logs"
             echo "  -h, --help               Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                       # Start with defaults (latest)"
-            echo "  $0 -v v2.0.2             # Start with specific version"
-            echo "  $0 --skip-keycloak       # Start without Keycloak service"
-            echo "  $0 -v v2.0.2 --skip-keycloak # Start with specific version, no Keycloak"
+            echo "  $0                            # Start with defaults (latest)"
+            echo "  $0 -v v2.0.2                  # Start with specific version"
+            echo "  $0 --skip-keycloak            # Start without Keycloak service"
+            echo "  $0 --observability            # Start with Aspire Dashboard"
+            echo "  $0 -v v2.0.2 --skip-keycloak  # Start with specific version, no Keycloak"
             exit 0
             ;;
         *)
@@ -71,7 +78,7 @@ done
 
 # Set final configuration based on arguments
 export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
-export SERVER_IMAGE="99xio/xiansai-server:$VERSION"
+export SERVER_IMAGE="99xio/xiansai-server:local"
 export UI_IMAGE="99xio/xiansai-ui:$VERSION"
 
 echo "📋 Configuration:"
@@ -129,6 +136,15 @@ else
     echo "⏭️  Skipping Keycloak service startup (--skip-keycloak enabled)"
 fi
 
+# Start Aspire Dashboard (optional — enabled via --observability flag)
+if [ "$OBSERVABILITY" = true ]; then
+    echo "📡 Starting Aspire Dashboard for observability..."
+    docker compose --profile dev up -d aspire-dashboard
+    echo "✅ Aspire Dashboard started"
+else
+    echo "ℹ️  Observability (Aspire Dashboard) skipped — use --observability to enable"
+fi
+
 # Start Temporal services with environment configuration
 echo "⚡ Starting Temporal services..."
 docker compose -p $COMPOSE_PROJECT_NAME -f temporal/docker-compose.yml --env-file temporal/.env.local up -d
@@ -150,8 +166,8 @@ echo ""
 echo "✅ All services started successfully!"
 echo ""
 echo "📊 Access Points:"
-echo "  • XiansAi UI:    http://localhost:3001"
-echo "  • XiansAi Server API:   http://localhost:5001/api-docs"
+echo "  • XiansAi UI:             http://localhost:3001"
+echo "  • XiansAi Server API:     http://localhost:5001/api-docs"
 if [ "$SKIP_KEYCLOAK" = false ]; then
     echo "  • Keycloak Admin Console: http://localhost:18080/admin"
 fi
@@ -160,6 +176,9 @@ echo "  • Temporal gRPC API:      localhost:7233"
 echo "  • Elasticsearch:          http://localhost:9200"
 echo "  • MongoDB:                localhost:27017"
 echo "  • Temporal PostgreSQL:    localhost:5432"
+if [ "$OBSERVABILITY" = true ]; then
+    echo "  • Aspire Dashboard:       http://localhost:18888  (traces, metrics, logs)"
+fi
 echo ""
 echo "�� Useful commands:"
 echo "  • View logs:              docker compose logs -f [service-name]"
