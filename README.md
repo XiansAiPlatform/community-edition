@@ -18,7 +18,7 @@ Welcome to the XiansAi Platform Community Edition! This repository provides a si
 1. **Clone this repository:**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/XiansAiPlatform/community-edition.git
    cd community-edition
    ```
 
