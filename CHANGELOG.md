@@ -5,6 +5,18 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.19.0] - 2026-03-23
+
+### 🚀 New Features
+
+- **OpenTelemetry support**: Added first-class OpenTelemetry integration for Xians agents and services.
+  Export of traces and metrics is enabled with `OPENTELEMETRY_ENDPOINT`, and logs can be exported with `OPENTELEMETRY_LOGS_ENDPOINT`.
+  This release also adds shared defaults for common instrumentation and support for tenant-aware service naming to improve observability in multi-tenant deployments.
+
+
+**Full Changelog**: https://github.com/XiansAiPlatform/community-edition/compare/vPREVIOUS...v3.19.0
+**Docker Images**: Available with tag `v3.19.0`
+**Documentation**: See updated documentation in repository
 ## [v3.16.0] - 2026-03-14
 
 ### 🚀 New Features
