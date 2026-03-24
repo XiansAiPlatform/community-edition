@@ -85,7 +85,7 @@ done
 
 # Set final configuration based on arguments
 export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
-export SERVER_IMAGE="99xio/xiansai-server:local"
+export SERVER_IMAGE="99xio/xiansai-server:$VERSION"
 export UI_IMAGE="99xio/xiansai-ui:$VERSION"
 
 echo "📋 Configuration:"
