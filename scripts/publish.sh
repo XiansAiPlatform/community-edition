@@ -5,6 +5,7 @@
 # - XiansAi.Server (Docker Hub)
 # - XiansAi.UI (Docker Hub) 
 # - XiansAi.Lib (NuGet)
+# - XiansAi.Otel.Lib (NuGet)
 # - sdk-web-typescript (npm)
 # - agent-studio (Docker Hub)
 # - XiansAi.Docs (GitHub Pages)
@@ -18,6 +19,7 @@ REPOS_CONFIG=(
     "../XiansAi.Server|XiansAi.Server|docker|hub.docker.com/r/99xio/xiansai-server"
     "../XiansAi.UI|XiansAi.UI|docker|hub.docker.com/r/99xio/xiansai-ui"
     "../XiansAi.Lib|XiansAi.Lib|nuget|nuget.org/packages/XiansAi.Lib"
+    "../XiansAi.Otel.Lib|XiansAi.Otel.Lib|nuget|nuget.org/packages/XiansAi.Otel.Lib"
     "../sdk-web-typescript|sdk-web-typescript|npm|npmjs.com/package/@99xio/xians-sdk-typescript"
     "../agent-studio|agent-studio|docker|hub.docker.com/r/99xio/agent-studio"
     "../XiansAi.Docs|XiansAi.Docs|docs|xiansaiplatform.github.io/XiansAi.Docs"
@@ -89,6 +91,7 @@ REPOSITORIES:
     XiansAi.Server      → Docker Hub (99xio/xiansai-server)
     XiansAi.UI          → Docker Hub (99xio/xiansai-ui)
     XiansAi.Lib         → NuGet (XiansAi.Lib)
+    XiansAi.Otel.Lib    → NuGet (XiansAi.Otel.Lib)
     sdk-web-typescript  → npm (@99xio/xians-sdk-typescript)
     agent-studio        → Docker Hub (99xio/agent-studio)
     XiansAi.Docs        → GitHub Pages (xiansaiplatform.github.io/XiansAi.Docs)
@@ -228,6 +231,9 @@ get_workflow_url() {
         "XiansAi.Lib")
             echo "https://github.com/XiansAiPlatform/XiansAi.Lib/actions/workflows/nuget-publish.yml"
             ;;
+        "XiansAi.Otel.Lib")
+            echo "https://github.com/XiansAiPlatform/XiansAi.Otel.Lib/actions/workflows/nuget-publish.yml"
+            ;;
         "sdk-web-typescript")
             echo "https://github.com/XiansAiPlatform/sdk-web-typescript/actions/workflows/publish-npm.yml"
             ;;
@@ -355,9 +361,10 @@ verify_artifacts() {
     echo "  - docker pull 99xio/xiansai-ui:$version"
     echo "  - docker pull 99xio/agent-studio:$version"
     
-    # NuGet package (can check via API)
-    log_info "NuGet package will be available at:"
+    # NuGet packages (can check via API)
+    log_info "NuGet packages will be available at:"
     echo "  - dotnet add package XiansAi.Lib --version $clean_version"
+    echo "  - dotnet add package XiansAi.Otel.Lib --version $clean_version"
     
     # npm package (can check via API) 
     log_info "npm package will be available at:"

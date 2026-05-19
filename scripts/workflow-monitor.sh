@@ -10,6 +10,7 @@ REPOS=(
     "XiansAiPlatform/XiansAi.Server"
     "XiansAiPlatform/XiansAi.UI"
     "XiansAiPlatform/XiansAi.Lib"
+    "XiansAiPlatform/XiansAi.Otel.Lib"
     "XiansAiPlatform/sdk-web-typescript"
     "XiansAiPlatform/agent-studio"
     "XiansAiPlatform/XiansAi.Docs"
@@ -18,6 +19,7 @@ REPOS=(
 WORKFLOWS=(
     "dockerhub-deploy.yml"
     "dockerhub-deploy.yml"
+    "nuget-publish.yml"
     "nuget-publish.yml"
     "publish-npm.yml"
     "dockerhub-deploy.yml"

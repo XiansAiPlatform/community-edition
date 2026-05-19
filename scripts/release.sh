@@ -127,7 +127,7 @@ OPTIONS:
     --no-github         Skip GitHub release creation
     --include-assets    Download and include assets from related repositories
     --assets-repos      Comma-separated list of repos to download assets from
-                        (default: XiansAiPlatform/XiansAi.Server,XiansAiPlatform/XiansAi.UI,XiansAiPlatform/XiansAi.Lib,XiansAiPlatform/sdk-web-typescript)
+                        (default: XiansAiPlatform/XiansAi.Server,XiansAiPlatform/XiansAi.UI,XiansAiPlatform/XiansAi.Lib,XiansAiPlatform/XiansAi.Otel.Lib,XiansAiPlatform/sdk-web-typescript)
 
 VERSION:
     Version number in semantic versioning format (e.g., v2.1.0, v2.1.0-beta.1)
@@ -350,7 +350,7 @@ main() {
     
     # Default configuration
     INCLUDE_ASSETS="false"
-    ASSETS_REPOS="XiansAiPlatform/XiansAi.Server,XiansAiPlatform/XiansAi.UI,XiansAiPlatform/XiansAi.Lib,XiansAiPlatform/sdk-web-typescript"
+    ASSETS_REPOS="XiansAiPlatform/XiansAi.Server,XiansAiPlatform/XiansAi.UI,XiansAiPlatform/XiansAi.Lib,XiansAiPlatform/XiansAi.Otel.Lib,XiansAiPlatform/sdk-web-typescript"
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
