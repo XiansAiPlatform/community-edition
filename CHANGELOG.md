@@ -5,6 +5,59 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.27.0] - 2026-05-19
+
+### 🚀 New Features
+
+- **Message feedback (platform-wide)**: Rate and comment on agent messages in Agent Studio, the Admin/Developer UI, and via new Server APIs for submitting and retrieving feedback ([#402](https://github.com/XiansAiPlatform/XiansAi.Server/pull/403), [#104](https://github.com/XiansAiPlatform/XiansAi.UI/pull/105), [#50](https://github.com/XiansAiPlatform/agent-studio/pull/36))
+- **Admin UI — tenant & organization**: Improved tenant management, header organization context, and searchable organization selection in the Manager portal ([#101](https://github.com/XiansAiPlatform/XiansAi.UI/pull/101)–[#103](https://github.com/XiansAiPlatform/XiansAi.UI/pull/103))
+- **Agent Studio — logs**: Auto-refresh for the logs view with countdown indicator and clearer log level badges
+- **Agent Studio — knowledge**: Refined knowledge item detail UI, dropdown layout, and descriptions
+
+### 🔧 Improvements
+
+- **Admin UI**: Simplified bulk workflow termination and schedule management
+- **Agent Studio**: Theme toggle with tooltip and accessibility improvements; clearer expand/collapse for log entries; improved chat input readability
+- **XiansAi.Lib**: Refactored certificate parsing and validation for clarity and maintainability ([#96](https://github.com/XiansAiPlatform/XiansAi.Lib/pull/96))
+- **Release tooling**: `XiansAi.Otel.Lib` added to `publish.sh`, `workflow-monitor.sh`, and default asset repos in `release.sh` for coordinated platform releases
+
+### 🐛 Bug Fixes
+
+- **Agent Studio**: Knowledge item detail mode and description copy corrections
+- **XiansAi.Lib**: Certificate handling edge cases addressed in parser/validator refactor
+
+### 🔒 Security Updates
+
+- **XiansAi.Lib**: Bumped `OpenTelemetry.Api` to 1.15.3 to address [CVE-2026-40894](https://github.com/XiansAiPlatform/XiansAi.Lib/commit/b81f820)
+
+### 📋 Migration Guide
+
+#### From v3.26.0 to v3.27.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Start with the new image tag (or run your usual publish → release flow first, then):
+  ```bash
+   ./start-all.sh -v v3.27.0
+  ```
+4. For custom deployments, update image references:
+  - `99xio/xiansai-server:v3.27.0`
+  - `99xio/xiansai-ui:v3.27.0`
+  - `99xio/agent-studio:v3.27.0`
+5. For .NET agents/SDKs using **XiansAi.Lib**, update to package version `3.27.0` after publish completes.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.26.0...v3.27.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.26.0...v3.27.0)  
+**Component changelogs**: [Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.26.0...v3.27.0) · [UI](https://github.com/XiansAiPlatform/XiansAi.UI/compare/v3.26.0...v3.27.0) · [Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.26.0...v3.27.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.26.0...v3.27.0)  
+**Docker Images**: `v3.27.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
 ## [v3.26.0] - 2026-04-29
 
 ### 🚀 New Features
