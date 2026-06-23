@@ -141,7 +141,8 @@ get_workflow_runs_jq() {
     
     # Filter for runs that match our version tag
     # Handle both headBranch (camelCase) and head_branch (snake_case) field names
-    echo "$runs" | jq --arg version "$version" '.[] | select((.headBranch // .head_branch) == $version or ((.displayTitle // .display_title // "") | contains($version)))' 2>/dev/null || echo "[]"
+    # Wrap in array so downstream parsing with .[0] works correctly
+    echo "$runs" | jq --arg version "$version" '[.[] | select((.headBranch // .head_branch) == $version or ((.displayTitle // .display_title // "") | contains($version)))]' 2>/dev/null || echo "[]"
 }
 
 # Check individual workflow status (basic mode)
