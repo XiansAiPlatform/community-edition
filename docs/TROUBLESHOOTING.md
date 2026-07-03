@@ -20,7 +20,7 @@ docker compose ps    # health status
 docker compose logs
 docker compose logs xiansai-server
 docker compose logs agent-studio
-docker compose logs xians-mongodb
+docker compose logs mongodb
 
 # Temporal / PostgreSQL run from their own compose files
 docker logs temporal

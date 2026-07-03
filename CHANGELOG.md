@@ -5,6 +5,143 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.30.0] - 2026-07-03
+
+### 🚀 New Features
+
+- **Server — event publishing via webhook**: The server can now publish platform events to an external endpoint by configuring a webhook URL, enabling outbound integrations and notifications to third-party systems.
+- **Agent Studio — multiple file upload**: Agent Studio now supports uploading and handling multiple files at once, streamlining workflows that involve attaching several documents or assets.
+- **Agent Studio — local authentication**: Added a local authentication capability to Agent Studio, allowing sign-in without an external identity provider for simpler local and self-hosted deployments.
+
+### 🔧 Improvements
+
+- **Community Edition — reorganized around Agent Studio**: The community edition has been cleaned up and reorganized to use Agent Studio as the primary interface instead of the Xians UI, delivering a single, unified experience. Deployment configuration, environment files, and scripts have been updated accordingly.
+- **Developer Experience**: Simplified setup and configuration following the removal of legacy components, reducing the number of services and moving parts required to run the platform.
+
+### 🧹 Cleanups
+
+- **Removed Xians UI support**: The Xians UI has been removed. Its functionality is now fully covered by Agent Studio, which is the recommended and only supported interface going forward.
+- **Removed Public API on server**: The server's Public API has been removed as part of consolidating and streamlining the platform's surface area.
+
+### ⚠️ Breaking Changes
+
+- **Xians UI removed**: Deployments and integrations that depended on the Xians UI must migrate to Agent Studio. The `xiansai-ui` image and related configuration are no longer part of the community edition.
+- **Public API removed**: Clients relying on the server's Public API must migrate to the supported APIs. Any integrations using the Public API endpoints will need to be updated.
+
+### 📋 Migration Guide
+
+#### From v3.29.0 to v3.30.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Migrate your environment configuration:
+   - The Xians UI environment file (`ui/.env.example`) has been removed. Use the new Agent Studio configuration in `studio/.env.example` as the reference for your `studio/.env.local`.
+   - Remove any Xians UI–specific configuration and image references from custom deployments.
+4. Start with the new image tag:
+  ```bash
+   ./start-all.sh -v v3.30.0
+  ```
+5. For custom deployments, update image references:
+  - `99xio/xiansai-server:v3.30.0`
+  - `99xio/agent-studio:v3.30.0`
+
+   Note: `99xio/xiansai-ui` is no longer used.
+6. For .NET agents/SDKs using **XiansAi.Lib**, update to package version `3.30.0` after publish completes.
+7. **Optional — server event webhook**: To publish platform events to an external endpoint, configure the webhook URL in `server/.env.local`.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.29.0...v3.30.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.29.0...v3.30.0)  
+**Component changelogs**: [Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.29.0...v3.30.0) · [Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.29.0...v3.30.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.29.0...v3.30.0)  
+**Docker Images**: `v3.30.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
+## [v3.29.0] - 2026-06-23
+
+### 🚀 New Features
+
+- **AgentStudio feature parity**: AgentStudio now includes all functionality that was previously only available through the Xians UI. AgentStudio is now the recommended interface for managing and interacting with the platform.
+- **Server AdminApi enhancements**: Significant updates to the AdminApi to support the expanded AgentStudio capabilities, providing a more complete and consistent set of administrative operations.
+
+### 🔧 Improvements
+
+- **Performance**: Performance fixes across the server AdminApi and AgentStudio projects for faster and more responsive operations.
+- **UI/UX**: AgentStudio reaches full feature coverage, delivering a single, unified experience for all platform workflows.
+
+### 🔒 Security Updates
+
+- Addressed several security issues across the AdminApi and AgentStudio projects.
+- Hardened authentication and authorization paths affected by the expanded AgentStudio functionality.
+
+### ⚠️ Deprecations
+
+- **Xians UI**: With AgentStudio now offering complete feature parity, the Xians UI is planned for deprecation in an upcoming release. Users are encouraged to begin transitioning their workflows to AgentStudio.
+
+---
+
+**Full Changelog**: https://github.com/XiansAiPlatform/community-edition/compare/v3.28.0...v3.29.0  
+**Docker Images**: Available with tag `v3.29.0`  
+**Documentation**: See updated documentation in repository
+
+## [v3.28.0] - 2026-06-04
+
+### 🚀 New Features
+
+- **OIDC — Azure AD SysAdmin sync**: Automatically promote or revoke SysAdmin based on Azure AD / Entra ID group membership on every login. Configure `Oidc__AdminGroupIds` with a comma-separated list of group Object IDs; the server checks `groups` and `roles` claims and keeps `IsSysAdmin` in sync ([#407](https://github.com/XiansAiPlatform/XiansAi.Server/pull/407))
+- **Webhook header forwarding**: Builtin webhook requests now forward inbound HTTP headers to agent workers via `WebhookContext.Metadata`, enabling integrations with providers such as GitHub and Azure DevOps ([#406](https://github.com/XiansAiPlatform/XiansAi.Server/pull/406), [#100](https://github.com/XiansAiPlatform/XiansAi.Lib/pull/100))
+- **Slack app integration — outbound messaging**: Agents can send messages back to Slack with Markdown-to-Slack formatting via `MarkdigSlackConverter`; activation-based app integration lookup supports agent-initiated Slack replies ([#405](https://github.com/XiansAiPlatform/XiansAi.Server/pull/405))
+- **Agent Studio — system admin tenants**: New System Admin tenants page with create, edit, delete, enable/disable, and search for platform tenants
+
+### 🔧 Improvements
+
+- **XiansAi.Lib — message-handling performance**: Broad quick-win optimizations across the per-message hot path — HTTP connection pooling in `SecureApi`, cached `JsonSerializerOptions` and reflection lookups, parallelized flow-message dispatch, compiled regex patterns, bounded log queue to prevent OOM during outages, and reduced eager JSON serialization in log lines ([#99](https://github.com/XiansAiPlatform/XiansAi.Lib/pull/99))
+- **Server — conversation change-stream reliability**: Processed-event tracking deduplicates conversation messages handled by `MongoChangeStreamService`, avoiding duplicate processing on retries
+- **Agent Studio**: Enhanced agent heartbeat polling and conversation page behaviour; simplified message sending and file upload logic
+
+### 🐛 Bug Fixes
+
+- **Server**: `MongoChangeStreamService` now resolves the processed-event repository lazily, reducing unnecessary resource use during message processing
+
+### 📋 Migration Guide
+
+#### From v3.27.0 to v3.28.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Start with the new image tag (or run your usual publish → release flow first, then):
+  ```bash
+   ./start-all.sh -v v3.28.0
+  ```
+4. For custom deployments, update image references:
+  - `99xio/xiansai-server:v3.28.0`
+  - `99xio/xiansai-ui:v3.28.0`
+  - `99xio/agent-studio:v3.28.0`
+5. For .NET agents/SDKs using **XiansAi.Lib**, update to package version `3.28.0` after publish completes.
+6. **Optional — Azure AD SysAdmin groups**: To enable automatic SysAdmin promotion from Entra ID groups, set in `server/.env.local`:
+  ```bash
+   Oidc__AdminGroupIds=<group-object-id-1>,<group-object-id-2>
+  ```
+   Leave unset to keep existing manual SysAdmin assignment behaviour.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.27.0...v3.28.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.27.0...v3.28.0)  
+**Component changelogs**: [Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.27.0...v3.28.0) · [UI](https://github.com/XiansAiPlatform/XiansAi.UI/compare/v3.27.0...v3.28.0) · [Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.27.0...v3.28.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.27.0...v3.28.0)  
+**Docker Images**: `v3.28.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
 ## [v3.27.0] - 2026-05-19
 
 ### 🚀 New Features
