@@ -4,7 +4,6 @@ Thank you for your interest in contributing to the XiansAi Platform! This docume
 
 ## 📋 Table of Contents
 
-- [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Contributing Process](#contributing-process)
@@ -12,9 +11,7 @@ Thank you for your interest in contributing to the XiansAi Platform! This docume
 - [Issue Guidelines](#issue-guidelines)
 - [Pull Request Guidelines](#pull-request-guidelines)
 
-## 🤝 Code of Conduct
-
-By participating in this project, you agree to abide by our Code of Conduct. We are committed to providing a welcoming and inspiring community for all.
+We are committed to providing a welcoming and inspiring community for all. Please be respectful in all project interactions.
 
 ## 🚀 Getting Started
 
@@ -66,44 +63,18 @@ By participating in this project, you agree to abide by our Code of Conduct. We 
 
 ## 🚢 Release Process
 
-### For Maintainers
+Releases are handled by maintainers. The full workflow (release notes, publishing
+upstream artifacts, monitoring workflows, and creating the community edition
+release) is documented in the **[Release Guide](docs/RELEASE_GUIDE.md)**.
 
-The release process is automated using our release scripts:
-
-#### 1. Prepare Release Notes
-
-```bash
-# Create release notes template
-./scripts/create-release-notes.sh v2.1.0
-
-# Edit the generated file: ./releases/v2.1.0.md
-```
-
-#### 2. Run Release Script
+At a high level:
 
 ```bash
-# Test the release process
-./release.sh v2.1.0 --dry-run
-
-# Create actual release
-./release.sh v2.1.0
+./scripts/create-release-notes.sh $VERSION   # 1. scaffold and edit releases/$VERSION.md
+./scripts/publish.sh $VERSION                 # 2. tag upstream repos
+./scripts/workflow-monitor.sh $VERSION        # 3. wait for their CI
+./scripts/release.sh $VERSION                 # 4. create the community edition release
 ```
-
-#### 3. Release Types
-
-- **Stable Release**: `./release.sh v2.1.0`
-- **Pre-release**: `./release.sh v2.1.0-beta.1 --prerelease`
-- **Draft Release**: `./release.sh v2.1.0 --draft`
-
-### Release Checklist
-
-- [ ] All tests pass
-- [ ] Documentation is updated
-- [ ] Breaking changes are documented
-- [ ] Migration guide is provided (if needed)
-- [ ] Docker images are tested
-- [ ] Release notes are comprehensive
-- [ ] Version follows semantic versioning
 
 ### Versioning Guidelines
 
