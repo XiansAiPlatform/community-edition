@@ -13,7 +13,6 @@ services:
       - "5432:5432"
     volumes:
       - postgresql_data:/var/lib/postgresql/data
-      - ../keycloak/init-keycloak-db.sql:/docker-entrypoint-initdb.d/01-init-keycloak-db.sql
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]

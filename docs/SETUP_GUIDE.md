@@ -1,6 +1,11 @@
 # XiansAi Platform Community Edition - Complete Setup Guide
 
-This comprehensive guide will help you set up the XiansAi Platform Community Edition on your local machine. This guide is designed for tech-savvy users who want to get the platform running independently without external help.
+This guide walks you through setting up the XiansAi Platform Community Edition on your local machine. The Community Edition deploys a minimal, self-contained stack:
+
+- **XiansAi Server** - core platform API and orchestration engine
+- **MongoDB** (replica set) - primary data store
+- **Temporal** (+ its own PostgreSQL) - workflow orchestration engine
+- **Agent Studio** - the web console for the platform
 
 ## 📋 Table of Contents
 
@@ -9,8 +14,8 @@ This comprehensive guide will help you set up the XiansAi Platform Community Edi
 - [Project Setup](#project-setup)
 - [Configuration](#configuration)
 - [Starting the Platform](#starting-the-platform)
+- [Bootstrap and Sign-in](#bootstrap-and-sign-in)
 - [Accessing Services](#accessing-services)
-- [Troubleshooting](#troubleshooting)
 - [Development Workflow](#development-workflow)
 - [Service-Specific Guides](#service-specific-guides)
 
@@ -47,36 +52,25 @@ brew install --cask docker
 #### Ubuntu/Debian
 
 ```bash
-# Update package index
 sudo apt-get update
-
-# Install prerequisites
 sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release
-
-# Add Docker's official GPG key
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-# Add Docker repository
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Install Docker Engine
 sudo apt-get update
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-# Add user to docker group
 sudo usermod -aG docker $USER
-
-# Start Docker service
 sudo systemctl start docker
 sudo systemctl enable docker
 ```
 
 #### Windows
+
 1. Download Docker Desktop from https://www.docker.com/products/docker-desktop
 2. Install and restart your computer
 3. Start Docker Desktop
 
 ### 2. Git
+
 ```bash
 # macOS
 brew install git
@@ -84,29 +78,28 @@ brew install git
 # Ubuntu/Debian
 sudo apt-get install git
 
-# Windows
-# Download from https://git-scm.com/download/win
+# Windows: download from https://git-scm.com/download/win
 ```
 
 ### 3. Verify Installation
+
 ```bash
-# Check Docker
 docker --version
 docker compose version
-
-# Check Git
 git --version
 ```
 
 ## 🚀 Project Setup
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/XiansAiPlatform/community-edition.git
 cd community-edition
 ```
 
 ### 2. Verify Project Structure
+
 ```bash
 ls -la
 # You should see:
@@ -114,340 +107,178 @@ ls -la
 # - stop-all.sh
 # - reset-all.sh
 # - docker-compose.yml
-# - keycloak/
 # - postgresql/
 # - temporal/
 # - server/
-# - ui/
+# - studio/
+# - mongodb/
 ```
 
-### 3. Check Available Environment Files
+### 3. Host File Entry (recommended)
+
+MongoDB is referenced by the hostname `mongodb` inside the connection string.
+Add a host entry so tools on your machine can resolve it too:
+
 ```bash
-# Check for example environment files
-find . -name ".env.example" -type f
-
-# Check for local environment files (already configured)
-find . -name ".env.local" -type f
-
-# You should see:
-# Example files:
-# - server/.env.example
-# - ui/.env.example
-# - postgresql/.env.example
-# - keycloak/.env.example
-# - temporal/.env.example
-#
-# Local files (already configured):
-# - server/.env.local
-# - ui/.env.local
-# - postgresql/.env.local
-# - keycloak/.env.local
-# - temporal/.env.local
+grep -q "mongodb" /etc/hosts || echo "127.0.0.1   mongodb" | sudo tee -a /etc/hosts
 ```
-Manually create a .env file in the root of the community-edition cloned repo and then run the  ./start-all.sh command it will create the following files .
-# - server/.env.local
-# - ui/.env.local
-# - postgresql/.env.local
-# - keycloak/.env.local
-# - temporal/.env.local
 
-
-**Note**: The `.env.local` files are already included in the repository and contain the community edition configuration. You only need to set your OpenAI API key in `server/.env.local`.
+On Windows, ensure `C:\Windows\System32\drivers\etc\hosts` contains
+`127.0.0.1   host.docker.internal` (edit as Administrator).
 
 ## ⚙️ Configuration
 
-### 1. Environment Variables Setup
+All configuration starts from the root `.env` file. The `start-all.sh` script
+reads it and generates per-service `.env.local` files (via
+`scripts/create-secrets.sh`) with randomly generated secrets.
 
-**Good News**: The project is already configured with community edition settings! The `.env.local` files contain all the necessary configuration for the community edition to run.
-
-**Project Pattern:**
-1. **`.env.example` files** - Show the pattern/structure of environment variables
-2. **`.env.local` files** - Contain the actual values for community edition to run (already included)
-3. **Scripts use `.env.local` files** - The startup scripts reference `.env.local` files
-
-**Available Files:**
-- **Example files** (for reference): `server/.env.example`, `ui/.env.example`, etc.
-- **Local files** (already configured): `server/.env.local`, `ui/.env.local`, etc.
-
-**Only Required Action**: Set your OpenAI API key in `server/.env.local`
-
-#### Environment Files Status ✅
-
-**All environment files are already configured!** The project includes `.env.local` files with community edition settings:
-
-- ✅ `postgresql/.env.local` - PostgreSQL configuration (already set)
-- ✅ `keycloak/.env.local` - Keycloak configuration (already set)
-- ✅ `temporal/.env.local` - Temporal configuration (already set)
-- ✅ `ui/.env.local` - UI configuration (already set)
-- ✅ `server/.env.local` - Server configuration (needs API key)
-
-**No manual setup required** - the community edition is pre-configured!
-
-### 2. API Key Configuration
-
-**Important**: You need to set up your OpenAI API key for the platform to work. The `server/.env.local` file already exists but needs your API key:
+### 1. Create the root `.env`
 
 ```bash
-# Navigate to server directory
-cd server
-
-# Edit the existing .env.local file to add your API key
-# Find the line: Llm__ApiKey=
-# Replace it with: Llm__ApiKey=your-actual-api-key-here
+cp .env.example .env
 ```
 
-**Get an OpenAI API Key:**
-1. Go to https://platform.openai.com/api-keys
-2. Create a new API key
-3. Add your API key to the `Llm__ApiKey=` line in `server/.env.local`
+Edit `.env` and set:
 
-**Quick Setup:**
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_EMAIL` | Yes* | Email of the first administrator. Bootstraps the platform, becomes your `SysAdmin` identity, and is your Agent Studio login username. If empty, `start-all.sh` prompts for it. |
+| `ADMIN_PASSWORD` | Yes* | Password for the Agent Studio local login. If empty, `start-all.sh` prompts for one (or generates and prints it). |
+| `OPENAI_API_KEY` | Yes | OpenAI API key used by the server. |
+| OAuth provider | Optional | Google, Microsoft/Azure AD, or Visma Connect credentials — only if you prefer SSO over the local login. |
+
+Example:
+
 ```bash
-# Set your API key (replace with your actual key)
-cd server
-sed -i '' 's/Llm__ApiKey=/Llm__ApiKey=your-actual-api-key-here/' .env.local
+ADMIN_EMAIL=admin@your-domain.com
+ADMIN_PASSWORD=choose-a-strong-password
+OPENAI_API_KEY=sk-your-openai-api-key-here
 ```
 
-### 3. Network Configuration
+Get an OpenAI API key at https://platform.openai.com/api-keys.
 
-The project uses a shared Docker network. The network will be created automatically when you start services.
+### 2. Generated files
 
-## 🏃‍♂️ Starting the Platform
+On first `./start-all.sh`, secrets are generated into:
 
-### 1. Quick Start (Recommended)
+- `server/.env.local` - MongoDB connection string, encryption keys, certificate, OpenAI key, CORS
+- `mongodb/.env.local` - MongoDB users/passwords
+- `postgresql/.env.local` and `temporal/.env.local` - shared PostgreSQL credentials
+- `studio/.env.local` - `NEXTAUTH_SECRET`, local login (`LOCAL_AUTH_ENABLED`, `LOCAL_AUTH_USERS`), any OAuth credentials, and `XIANS_APIKEY` (filled at bootstrap)
+
+These files are not committed to git. Existing `.env.local` files are preserved
+and never overwritten.
+
+## 🏃 Starting the Platform
+
+### Quick Start
+
 ```bash
-# From the project root
 ./start-all.sh
 ```
 
-This script will:
-- Create the Docker network
-- Start all services (MongoDB, PostgreSQL, Keycloak, Temporal, XiansAi Server, XiansAi UI)
-- Wait for services to be healthy
-- Display access URLs
+This will:
 
+1. Generate secrets (first run only).
+2. Start MongoDB and the XiansAi Server.
+3. Start PostgreSQL and Temporal, then register Temporal search attributes.
+4. Wait for the server to become healthy.
+5. Bootstrap the platform and inject the API key into `studio/.env.local`.
+6. Start Agent Studio and print access URLs.
 
+### Options
 
-### 2. Advanced Start Options
 ```bash
-# Start with specific version
+# Specific image version
 ./start-all.sh -v v2.1.0
 
-# Start with specific environment
-./start-all.sh -e staging
+# With Aspire Dashboard (local OTel traces/metrics/logs)
+./start-all.sh --observability
 
-# Start with both version and environment
-./start-all.sh -v v2.1.0 -e production
+# With OTEL Collector exporting to Azure App Insights
+./start-all.sh --observability-azure
 
 # Show all options
 ./start-all.sh --help
 ```
 
-### 3. Individual Service Start (For Development)
+## 🔑 Bootstrap and Sign-in
+
+### Bootstrap (automatic)
+
+A fresh server has no users. On first start, `start-all.sh` calls:
+
 ```bash
-# Start PostgreSQL first
-cd postgresql
-docker compose up -d
-
-# Start Keycloak
-cd ../keycloak
-docker-compose --env-file .env.local up -d
-
-# Start Temporal
-cd ../temporal
-docker compose up -d
-
-# Start main services
-cd ..
-docker compose up -d
+curl "http://localhost:5001/api/v1/admin/bootstrap?email=$ADMIN_EMAIL"
 ```
 
-**Note**: The services use `.env.local` files which are already configured in the community edition.
+This creates the first `SysAdmin`, ensures a tenant exists, and returns a
+one-time **API key**. The script prints it and stores it in
+`studio/.env.local` as `XIANS_APIKEY`. **Save the key** - it is shown only once.
+
+If the platform is already bootstrapped, the endpoint returns `409 Conflict`.
+To recover a key later, sign in to Agent Studio and mint a new one, or run
+`./reset-all.sh` to start over (this deletes all data).
+
+### Sign-in (local login, default)
+
+By default, Agent Studio uses its built-in email/password login - no external
+provider required. `start-all.sh` enables it and configures a user from your
+bootstrap admin by writing to `studio/.env.local`:
+
+```bash
+LOCAL_AUTH_ENABLED=true
+LOCAL_AUTH_USERS=<ADMIN_EMAIL>:<ADMIN_PASSWORD>
+```
+
+Sign in at http://localhost:3000 with `ADMIN_EMAIL` / `ADMIN_PASSWORD`. This
+resolves to the bootstrapped `SysAdmin` because the emails match.
+
+> Local login is for local/evaluation use only. Never enable it on a publicly
+> reachable deployment.
+
+### Sign-in via OAuth (optional)
+
+If you prefer SSO, configure one provider instead of (or in addition to) local login:
+
+1. Set the provider credentials in `.env` before your first start (they are
+   copied into `studio/.env.local`), or edit `studio/.env.local` afterwards and
+   restart Agent Studio:
+
+   ```bash
+   docker compose up -d --force-recreate agent-studio
+   ```
+
+2. Register the redirect URI with your provider:
+   `http://localhost:3000/api/auth/callback/<provider>`
+   (e.g. `.../callback/google`, `.../callback/azure-ad`, `.../callback/visma-connect`).
+3. Sign in with an identity whose email equals `ADMIN_EMAIL`, otherwise your
+   account will not resolve to the bootstrapped `SysAdmin`.
 
 ## 🌐 Accessing Services
 
-Once all services are running, you can access them at:
-
 ### Primary Services
 
-- **XiansAi UI**: http://localhost:3001
+- **Agent Studio**: http://localhost:3000
 - **XiansAi Server API**: http://localhost:5001/api-docs
-- **Keycloak Admin Console**: http://localhost:18080/admin
-- **Temporal Web UI**: http://localhost:8080
+- **Temporal Web UI**: http://localhost:8080 (unauthenticated, local only)
 
 ### Database Services
 
 - **MongoDB**: localhost:27017
-- **PostgreSQL**: localhost:5432
+- **PostgreSQL** (Temporal): localhost:5432
 
-### Default Credentials
-
-- **Keycloak Admin**: `admin` / `admin`
-- **PostgreSQL**: `temporal` / `temporal`
-- **MongoDB**: No authentication required (development setup)
-
-## 🔍 Troubleshooting
-
-### Common Issues and Solutions
-
-
-
-#### 1. Container Name Conflicts
-
-**Error**: `Error response from daemon: Conflict. The container name "/xians-mongodb" is already in use`
-
-**Solution**:
+### Verify Services
 
 ```bash
-# Stop and remove conflicting containers
-docker stop xians-mongodb xians-server xians-ui keycloak postgresql
-docker rm xians-mongodb xians-server xians-ui keycloak postgresql
+docker compose ps
 
-# Then restart
-./start-all.sh
-```
-
-#### 2. Port Already in Use
-
-**Error**: `Error starting userland proxy: listen tcp 0.0.0.0:27017: bind: address already in use`
-
-**Solution**:
-
-```bash
-# Check what's using the port
-lsof -i :27017
-
-# Stop the conflicting service or change the port in docker-compose.yml
-```
-
-#### 3. Environment Variable Not Set
-
-**Error**: `The "POSTGRESQL_VERSION" variable is not set. Defaulting to a blank string.`
-
-**Solution**:
-
-```bash
-# Check if .env.local file exists
-ls -la postgresql/.env.local
-
-# If missing, create it from example
-cd postgresql && cp .env.example .env.local && cd ..
-./start-all.sh
-```
-
-#### 4. Docker Network Issues
-
-**Error**: `network with name xians-community-edition-network exists but was not created`
-
-**Solution**:
-
-```bash
-# This is just a warning, not an error. The network exists and will be used.
-# If you want to clean up networks:
-docker network prune
-```
-
-#### 5. Service Health Check Failures
-
-**Error**: Services show as unhealthy
-
-**Solution**:
-
-```bash
-# Check service logs
-docker compose logs xians-server
-docker compose logs xians-ui
-docker compose logs keycloak
-
-# Restart specific service
-docker compose restart xians-server
-```
-
-#### 6. Memory Issues
-
-**Error**: Services fail to start due to insufficient memory
-
-**Solution**:
-
-- Increase Docker Desktop memory limit (8GB+ recommended)
-- Close other applications to free up RAM
-- Restart Docker Desktop
-
-#### 7. API Key Issues
-
-**Error**: Server fails to start or returns authentication errors
-
-**Solution**:
-
-```bash
-# Verify API key is set
-cd server
-cat .env.local
-
-# If missing, create it:
-echo "Llm__ApiKey=your-actual-api-key" > .env.local
-```
-
-#### 8. Error when starting MongoDB server in windows 
-
-
-**Solution**: error in MongoDB can be resolved by changing the line sequence to LF from CRLF in mongo-startup.sh File 
-
-
-### Health Check Commands
-
-#### MongoDB Health Check
-
-```bash
-# Test MongoDB connection
-mongosh --eval "db.adminCommand('ping')" --quiet
-
-# Run health check script
-mongosh --eval "$(cat mongodb/mongo-healthcheck.js)" --quiet
-```
-
-#### PostgreSQL Health Check
-
-```bash
-# Test PostgreSQL connection
-docker exec postgresql pg_isready -U temporal
-```
-
-#### Keycloak Health Check
-
-```bash
-# Check Keycloak health
-curl http://localhost:18080/health/ready
-```
-
-#### Elasticsearch Health Check
-
-```bash
-# Check Elasticsearch health
-curl http://localhost:9200/_cluster/health
-
-# Check Temporal visibility index
-curl http://localhost:9200/temporal_visibility_v1_dev/_search?size=0
-
-# Verify Elasticsearch is accessible from Temporal
-docker exec temporal curl -f http://elasticsearch:9200/_cluster/health
-```
-
-### Log Monitoring
-
-```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f xians-server
-docker compose logs -f keycloak
-docker compose logs -f postgresql
+curl -s http://localhost:3000/api/health > /dev/null && echo "✅ Agent Studio is running"
+curl -s http://localhost:8080 > /dev/null && echo "✅ Temporal UI is running"
+curl -s http://localhost:5001/health > /dev/null && echo "✅ XiansAi Server is running"
 ```
 
 ## 🛠️ Development Workflow
-
-### 1. Starting Development
 
 ```bash
 # Start all services
@@ -455,129 +286,72 @@ docker compose logs -f postgresql
 
 # Monitor logs
 docker compose logs -f
-```
+docker compose logs -f xiansai-server
+docker compose logs -f agent-studio
 
-### 2. Stopping Services
-
-```bash
 # Stop all services
 ./stop-all.sh
 
-# Or stop individual services
-docker compose down
-```
-
-### 3. Resetting Everything
-
-```bash
 # Complete reset (removes all data)
 ./reset-all.sh
+./reset-all.sh -f      # skip confirmation
 
-# Force reset without confirmation
-./reset-all.sh -f
-```
-
-### 4. Updating Services
-
-```bash
-# Pull latest images
-docker compose pull
-
-# Restart services
-./stop-all.sh
-./start-all.sh
+# Update to the latest images
+./pull-latest.sh
+./stop-all.sh && ./start-all.sh
 ```
 
 ## 📚 Service-Specific Guides
 
 ### MongoDB Service
 
-- **Purpose**: Primary database for XiansAi platform
+- **Purpose**: Primary database for the XiansAi platform (runs as a replica set)
 - **Port**: 27017
 - **Health Check**: `mongodb/mongo-healthcheck.js`
-- **No authentication required** (development setup)
+- **Credentials**: Randomly generated into `mongodb/.env.local`; the server's
+  connection string is written into `server/.env.local`.
 
 ### PostgreSQL Service
 
-- **Purpose**: Database for Keycloak and Temporal
+- **Purpose**: Datastore for Temporal
 - **Port**: 5432
-- **Credentials**: temporal/temporal
-- **Environment**: Requires `POSTGRESQL_VERSION=16` in `.env.local`
-
-### Keycloak Service
-
-- **Purpose**: Identity and Access Management
-- **Port**: 18080
-- **Admin**: admin/admin
-- **Dependencies**: Requires PostgreSQL running first
+- **Credentials**: Randomly generated into `postgresql/.env.local` /
+  `temporal/.env.local`.
 
 ### Temporal Service
 
 - **Purpose**: Workflow orchestration
-- **Port**: 8080 (UI), 7233 (gRPC)
-- **Dependencies**: Requires PostgreSQL and Elasticsearch running first
-- **Visibility**: Uses Elasticsearch for advanced workflow search and filtering
-
-### Elasticsearch Service
-
-- **Purpose**: Temporal visibility store for advanced search capabilities
-- **Port**: 9200 (HTTP API)
-- **Index**: temporal_visibility_v1_dev
-- **Configuration**: Single-node cluster optimized for development
+- **Ports**: 8080 (UI), 7233 (gRPC)
+- **Visibility**: PostgreSQL-based (SQL) - no Elasticsearch required
+- **Search attributes**: Registered by `temporal/setup-search-attributes.sh`
+  (`tenantId`, `userId`, `agent`, `idPostfix`)
 
 ### XiansAi Server
 
 - **Purpose**: Backend API service
 - **Port**: 5001
-- **Dependencies**: Requires MongoDB and Keycloak
-- **Configuration**: Requires OpenAI API key in `server/.env.local`
+- **Auth mode**: Admin-API-key-only (no OIDC provider). The bootstrapped API key
+  authorizes Admin APIs; agents authenticate with certificates.
+- **Dependencies**: MongoDB (and Temporal for workflows)
 
-### XiansAi UI
+### Agent Studio
 
-- **Purpose**: Frontend web application
-- **Port**: 3001
-- **Dependencies**: Requires XiansAi Server running
-
-## 🔄 Maintenance
-
-### Regular Tasks
-
-1. **Update Docker images**: `docker compose pull`
-2. **Clean up unused resources**: `docker system prune`
-3. **Monitor disk usage**: `docker system df`
-4. **Backup data** (if needed): Export volumes before major updates
-
-### Backup and Restore
-
-```bash
-# Backup PostgreSQL data
-docker exec postgresql pg_dump -U temporal keycloak > backup.sql
-
-# Backup MongoDB data
-docker exec xians-mongodb mongodump --out /backup
-
-# Restore PostgreSQL
-docker exec -i postgresql psql -U temporal keycloak < backup.sql
-```
-
-## 📞 Getting Help
-
-If you encounter issues not covered in this guide:
-
-1. **Check the logs**: `docker compose logs -f [service-name]`
-2. **Search existing issues**: GitHub Issues
-3. **Create a new issue**: Include logs, error messages, and system details
-4. **Join discussions**: GitHub Discussions
+- **Purpose**: Web console for the platform
+- **Port**: 3000
+- **Dependencies**: A healthy XiansAi Server and a valid `XIANS_APIKEY`
+- **Sign-in**: Built-in local email/password login by default (`ADMIN_EMAIL` /
+  `ADMIN_PASSWORD`); OAuth providers optional (see above)
 
 ## 🎯 Next Steps
 
 After successful setup:
-1. **Explore the UI**: http://localhost:3001
-2. **Check API documentation**: http://localhost:5001/api-docs
-3. **Configure Keycloak**: http://localhost:18080/admin
-4. **Monitor workflows**: http://localhost:8080
-5. **Read the contributing guide**: [CONTRIBUTING.md](../CONTRIBUTING.md)
+
+1. Sign in to Agent Studio: http://localhost:3000
+2. Explore the API documentation: http://localhost:5001/api-docs
+3. Monitor workflows in Temporal: http://localhost:8080
+4. Read the contributing guide: [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ---
 
-**Note**: This setup is for development and testing only. For production deployment, refer to the production deployment guide. 
+**Note**: This setup is intended for development and evaluation. For production
+deployment, refer to the platform's production documentation.

@@ -2,6 +2,8 @@
 
 Welcome to the XiansAi Platform Community Edition! This repository provides a simple Docker Compose setup to get you started with the XiansAi platform quickly and easily.
 
+It deploys a minimal stack: **XiansAi Server**, **MongoDB**, **Temporal** (with its own PostgreSQL), and **Agent Studio** (the web console). During startup the platform is automatically bootstrapped to mint your first API key, which is injected into Agent Studio for you.
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -30,29 +32,36 @@ Welcome to the XiansAi Platform Community Edition! This repository provides a si
    ```
 
    Edit the `.env` file and add your configuration:
-   - `OPENAI_API_KEY`: Your OpenAI API key for AI functionality
-   - `KEYCLOAK_ADMIN_PASSWORD`: Password for the admin user to login to XiansAi UI
+   - `ADMIN_EMAIL`: Email of the first platform administrator. This value bootstraps the platform, becomes your `SysAdmin` identity, and is your Agent Studio login username. If left empty, `start-all.sh` prompts for it.
+   - `ADMIN_PASSWORD`: Password for the Agent Studio local login (paired with `ADMIN_EMAIL`). If left empty, `start-all.sh` prompts for one (or generates and prints it).
+   - `OPENAI_API_KEY`: Your OpenAI API key for AI functionality.
+   - OAuth providers are **optional** — by default you sign in with the local email/password login above. Configure Google/Azure/Visma only if you prefer SSO (see below).
 
    Example:
 
    ```bash
+   ADMIN_EMAIL=admin@your-domain.com
+   ADMIN_PASSWORD=choose-a-strong-password
    OPENAI_API_KEY=sk-your-openai-api-key-here
-   KEYCLOAK_ADMIN_PASSWORD=your-secure-password
    ```
 
 1. **Start the platform:**
 
    ```bash
-   # Start with defaults (latest version, local environment)
+   # Start with defaults (latest version)
    ./start-all.sh
 
    # Show help for all options
    ./start-all.sh --help
    ```
 
+   On first run, once the server is healthy `start-all.sh` calls the bootstrap
+   endpoint, prints your **API key**, and stores it in `studio/.env.local`
+   (`XIANS_APIKEY`). Save the key somewhere safe — it is shown only once.
+
    **Management scripts:**
-   - `./start-all.sh [options]` - Start the platform with optional version/environment
-   - `./stop-all.sh` - Stop all services (version-independent)  
+   - `./start-all.sh [options]` - Start the platform with optional version
+   - `./stop-all.sh` - Stop all services (version-independent)
    - `./reset-all.sh [options]` - Complete reset and cleanup (removes all data)
    - `./pull-latest.sh [options]` - Pull latest Docker images from DockerHub
 
@@ -64,23 +73,64 @@ Welcome to the XiansAi Platform Community Edition! This repository provides a si
 
    | Application | URL | Purpose | Credentials |
    |-------------|-----|---------|-------------|
-   | **XiansAi Platform** | [http://localhost:3001](http://localhost:3001) | Main AI platform interface | `admin` / `KEYCLOAK_ADMIN_PASSWORD` |
-   | **Temporal Web UI** | [http://localhost:8080](http://localhost:8080) | Workflow orchestration dashboard |  `admin` / `KEYCLOAK_ADMIN_PASSWORD`|
-   | **Keycloak Admin** | [http://localhost:18080/admin](http://localhost:18080/admin) | Identity & access management | `admin` / `KEYCLOAK_ADMIN_PASSWORD` |
+   | **Agent Studio** | [http://localhost:3000](http://localhost:3000) | Main web console | Local login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` |
+   | **Temporal Web UI** | [http://localhost:8080](http://localhost:8080) | Workflow orchestration dashboard | No authentication (local only) |
    | **API Documentation** | [http://localhost:5001/api-docs](http://localhost:5001/api-docs) | Interactive API documentation | No authentication required |
 
-   ### 🔐 Authentication Notes
+   ### 🔐 Signing in to Agent Studio
 
-   - **Default Username**: `admin` for both XiansAi Platform and Keycloak
-   - **Password**: Use the value you set for `KEYCLOAK_ADMIN_PASSWORD` in your `.env` file
+   By default the Community Edition uses Agent Studio's built-in **local login**
+   — no external identity provider required. `start-all.sh` enables it and
+   configures a user from your bootstrap admin:
+
+   - **Email**: `ADMIN_EMAIL`
+   - **Password**: `ADMIN_PASSWORD` (or the one `start-all.sh` generated and printed)
+
+   This works because bootstrap creates the `SysAdmin` for `ADMIN_EMAIL`, and the
+   local login signs you in as that same identity. Under the hood, `start-all.sh`
+   sets `LOCAL_AUTH_ENABLED=true` and `LOCAL_AUTH_USERS=<email>:<password>` in
+   `studio/.env.local`.
+
+   > Local login is intended for local/evaluation use only. Do not enable it on a
+   > publicly reachable deployment.
+
+   **Prefer SSO instead?** Configure one OAuth provider (Google, Microsoft/Azure
+   AD, or Visma Connect):
+
+   1. Set the provider credentials in `.env` before your first `./start-all.sh`
+      (they are copied into `studio/.env.local`), or edit `studio/.env.local`
+      afterwards and restart Agent Studio:
+
+      ```bash
+      docker compose up -d --force-recreate agent-studio
+      ```
+
+   2. Register the redirect URI with your provider:
+      `http://localhost:3000/api/auth/callback/<provider>` (e.g. `.../callback/google`).
+   3. Sign in with an identity whose email equals `ADMIN_EMAIL`, otherwise your
+      account won't resolve to the bootstrapped `SysAdmin`.
+
+   ### 🔑 The API key (bootstrap)
+
+   A fresh server has no users. `start-all.sh` initializes it by calling:
+
+   ```bash
+   curl "http://localhost:5001/api/v1/admin/bootstrap?email=$ADMIN_EMAIL"
+   ```
+
+   which returns a one-time API key that Agent Studio uses to call the platform.
+   The script writes it to `studio/.env.local`. If you ever need to do this
+   manually (for example after a reset), run the command above and paste the
+   returned `apiKey` into `studio/.env.local` as `XIANS_APIKEY`, then restart
+   Agent Studio. The bootstrap endpoint only works while the platform has no
+   users (returns `409 Conflict` afterwards).
 
    ### 🖥️ Host Configuration (Required for some services)
 
    Some services require host file entries to work properly. Add these entries **only once**:
 
    ```bash
-   # Check if entries already exist to avoid duplicates
-   grep -q "keycloak" /etc/hosts || echo "127.0.0.1   keycloak" | sudo tee -a /etc/hosts
+   # Check if entry already exists to avoid duplicates
    grep -q "mongodb" /etc/hosts || echo "127.0.0.1   mongodb" | sudo tee -a /etc/hosts
    ```
     ### 🖥️ Windows Host File Setup
@@ -123,10 +173,9 @@ Welcome to the XiansAi Platform Community Edition! This repository provides a si
    docker compose ps
 
    # Test service endpoints
-   curl -s http://localhost:3001 > /dev/null && echo "✅ XiansAi UI is running"
+   curl -s http://localhost:3000/api/health > /dev/null && echo "✅ Agent Studio is running"
    curl -s http://localhost:8080 > /dev/null && echo "✅ Temporal UI is running"
-   curl -s http://localhost:5001/api-docs > /dev/null && echo "✅ XiansAi Server is running"
-   curl -s http://localhost:18080 > /dev/null && echo "✅ Keycloak is running"
+   curl -s http://localhost:5001/health > /dev/null && echo "✅ XiansAi Server is running"
 
    ```
 
@@ -138,8 +187,9 @@ Welcome to the XiansAi Platform Community Edition! This repository provides a si
 
 ```bash
 -v, --version VERSION    Docker image version (default: latest)
--e, --env ENV_POSTFIX    Environment postfix (default: local)
 -d, --detached           Run in detached mode (default)
+--observability          Start Aspire Dashboard for OTel traces/metrics/logs
+--observability-azure    Start OTEL Collector for Azure App Insights export
 -h, --help               Show help message
 ```
 
@@ -169,8 +219,8 @@ Welcome to the XiansAi Platform Community Edition! This repository provides a si
 # Development setup (default)
 ./start-all.sh
 
-# Production environment
-./start-all.sh -v v2.1.0 -e production
+# Specific version
+./start-all.sh -v v2.1.0
 
 # Pull latest images
 ./pull-latest.sh
@@ -193,7 +243,7 @@ docker compose logs -f
 
 # Specific service
 docker compose logs -f xiansai-server
-docker compose logs -f xiansai-ui
+docker compose logs -f agent-studio
 ```
 
 ### Docker Releases
@@ -216,9 +266,9 @@ The XiansAi Platform consists of multiple repositories:
 - **XiansAi.Server**
   - Docker Hub [99xio/xiansai-server](https://hub.docker.com/repository/docker/99xio/xiansai-server/general)
   - Repository: [XiansAi.Server](https://github.com/XiansAiPlatform/XiansAi.Server)
-- **XiansAi.UI**
-  - Docker Hub [99xio/xiansai-ui](https://hub.docker.com/repository/docker/99xio/xiansai-ui/general)
-  - Repository: [XiansAi.UI](https://github.com/XiansAiPlatform/XiansAi.UI)
+- **Agent Studio**
+  - Docker Hub [99xio/agent-studio](https://hub.docker.com/repository/docker/99xio/agent-studio/general)
+  - Repository: [agent-studio](https://github.com/XiansAiPlatform/agent-studio)
 - **XiansAi.Lib**
   - NuGet [XiansAi.Lib](https://www.nuget.org/packages/XiansAi.Lib)
   - Repository: [XiansAi.Lib](https://github.com/XiansAiPlatform/XiansAi.Lib)

@@ -1,42 +1,39 @@
 # XiansAi Platform Community Edition - Troubleshooting Guide
 
-This guide covers common issues you might encounter when setting up and running the XiansAi Platform Community Edition, along with their solutions.
+This guide covers common issues you might encounter when setting up and running
+the XiansAi Platform Community Edition (Server, MongoDB, Temporal + PostgreSQL,
+and Agent Studio), along with their solutions.
 
 ## 📋 Quick Diagnosis
 
 ### 1. Check Service Status
+
 ```bash
-# Check all running containers
-docker ps
-
-# Check all containers (including stopped ones)
-docker ps -a
-
-# Check service health
-docker compose ps
+docker ps            # running containers
+docker ps -a         # including stopped containers
+docker compose ps    # health status
 ```
 
 ### 2. Check Service Logs
-```bash
-# All services
-docker compose logs
 
-# Specific service
-docker compose logs xians-server
-docker compose logs keycloak
-docker compose logs postgresql
+```bash
+docker compose logs
+docker compose logs xiansai-server
+docker compose logs agent-studio
 docker compose logs xians-mongodb
+
+# Temporal / PostgreSQL run from their own compose files
+docker logs temporal
+docker logs postgresql
 
 # Follow logs in real-time
 docker compose logs -f
 ```
 
 ### 3. Check Network Status
-```bash
-# List Docker networks
-docker network ls
 
-# Inspect the project network
+```bash
+docker network ls
 docker network inspect xians-community-edition-network
 ```
 
@@ -45,416 +42,263 @@ docker network inspect xians-community-edition-network
 ### Issue 1: Container Name Conflicts
 
 **Symptoms:**
-```
-Error response from daemon: Conflict. The container name "/xians-mongodb" is already in use by container "abc123..."
-```
 
-**Cause:** Previous containers with the same names are still present.
+```
+Error response from daemon: Conflict. The container name "/xians-mongodb" is already in use
+```
 
 **Solution:**
+
 ```bash
-# Stop all related containers
-docker stop xians-mongodb xians-server xians-ui keycloak postgresql temporal temporal-ui
+# Cleanly stop everything first
+./stop-all.sh
 
-# Remove the containers
-docker rm xians-mongodb xians-server xians-ui keycloak postgresql temporal temporal-ui
+# If names are still held, remove the containers
+docker rm -f xians-mongodb xians-server xians-agent-studio temporal temporal-ui postgresql
 
-# Restart the platform
+# Restart
 ./start-all.sh
 ```
 
-**Prevention:** Always use `./stop-all.sh` before starting services, or use `./reset-all.sh` for a clean slate.
+**Prevention:** Always use `./stop-all.sh` before starting again, or
+`./reset-all.sh` for a clean slate.
 
 ### Issue 2: Port Already in Use
 
 **Symptoms:**
-```
-Error starting userland proxy: listen tcp 0.0.0.0:27017: bind: address already in use
-```
 
-**Cause:** Another service is using the required port.
+```
+Error starting userland proxy: listen tcp 0.0.0.0:5001: bind: address already in use
+```
 
 **Solution:**
+
 ```bash
-# Check what's using the port
-lsof -i :27017
-lsof -i :5432
-lsof -i :18080
-lsof -i :3001
-lsof -i :5001
+# Find what is using the port
+lsof -i :3000   # Agent Studio
+lsof -i :5001   # XiansAi Server
+lsof -i :8080   # Temporal UI
+lsof -i :27017  # MongoDB
+lsof -i :5432   # PostgreSQL
 
-# Stop the conflicting service
-sudo kill -9 <PID>
-
-# Or change the port in docker-compose.yml
+# Stop the conflicting process, or change the host port mapping in the
+# corresponding docker-compose.yml
 ```
 
-**Alternative:** Modify the port mapping in the respective `docker-compose.yml` file.
-
-### Issue 3: Environment Variable Not Set
+### Issue 3: Missing `.env` / Environment Variable Not Set
 
 **Symptoms:**
-```
-The "POSTGRESQL_VERSION" variable is not set. Defaulting to a blank string.
-unable to get image 'postgres:': Error response from daemon: invalid reference format
-```
 
-**Cause:** Missing `.env.local` file or environment variable. The community edition should include `.env.local` files with all necessary configuration.
+```
+❌ ERROR: Root .env file not found
+The "POSTGRESQL_VERSION" variable is not set. Defaulting to a blank string.
+```
 
 **Solution:**
+
 ```bash
-# Check if .env.local files exist
-ls -la postgresql/.env.local keycloak/.env.local
-
-# If missing, create them from examples
-cd postgresql && cp .env.example .env.local && cd ..
-cd keycloak && cp .env.example .env.local && cd ..
-
-# Restart services
+# Ensure the root .env exists and has the required values
+cp .env.example .env
+# Set ADMIN_EMAIL and OPENAI_API_KEY, then:
 ./start-all.sh
 ```
 
-**Note:** The community edition should include `.env.local` files. If they're missing, you may need to re-clone the repository or check if they were accidentally deleted.
+`start-all.sh` generates the per-service `.env.local` files. If a service
+`.env.local` is missing or corrupt, delete it and re-run:
 
-### Issue 4: Docker Network Issues
-
-**Symptoms:**
-```
-WARN[0000] a network with name xians-community-edition-network exists but was not created for project "xians-community-edition".
-```
-
-**Cause:** Network was created by a different project or previous run.
-
-**Solution:**
 ```bash
-# This is usually just a warning, not an error
-# If you want to clean up networks:
-docker network prune
-
-# Or remove the specific network:
-docker network rm xians-community-edition-network
+rm postgresql/.env.local temporal/.env.local
+./start-all.sh
 ```
 
-### Issue 5: Service Health Check Failures
+### Issue 4: Server Never Becomes Healthy
 
-**Symptoms:**
-- Services show as "unhealthy" in `docker ps`
-- Services restart repeatedly
-- Application doesn't respond
+**Symptoms:** `start-all.sh` reports "XiansAi Server did not become healthy".
 
 **Diagnosis:**
-```bash
-# Check specific service logs
-docker compose logs xians-server
-docker compose logs keycloak
-docker compose logs postgresql
 
-# Check health status
+```bash
+docker compose logs xiansai-server
 docker inspect xians-server | grep -A 10 "Health"
 ```
 
-**Common Solutions:**
+**Common causes:**
 
-#### MongoDB Health Issues
-```bash
-# Test MongoDB connection
-mongosh --eval "db.adminCommand('ping')" --quiet
+- MongoDB not reachable or not a replica set - check `MongoDB__ConnectionString`
+  in `server/.env.local` (must include `replicaSet=rs0`).
+- A required secret is missing - re-generate by removing `server/.env.local`
+  and re-running `./start-all.sh`.
 
-# If mongosh not installed:
-brew install mongosh  # macOS
-# or
-sudo apt-get install mongodb-mongosh  # Ubuntu
-```
+### Issue 5: Bootstrap Fails or Returns 409
 
-#### PostgreSQL Health Issues
-```bash
-# Test PostgreSQL connection
-docker exec postgresql pg_isready -U temporal
+**Symptoms:** `start-all.sh` prints a bootstrap warning.
 
-# Check PostgreSQL logs
-docker logs postgresql
-```
+- **`409 Conflict`**: The platform already has users. Bootstrap only works on an
+  empty platform. Sign in to Agent Studio and mint a new API key from the UI, or
+  reset with `./reset-all.sh` (deletes all data).
+- **Other HTTP error**: The server may not be fully ready. Re-run the call
+  manually once healthy:
 
-#### Keycloak Health Issues
-```bash
-# Check Keycloak health endpoint
-curl http://localhost:18080/health/ready
+  ```bash
+  curl "http://localhost:5001/api/v1/admin/bootstrap?email=admin@your-domain.com"
+  ```
 
-# Wait for Keycloak to fully start (can take 2-3 minutes)
-docker logs keycloak | grep "started"
-```
+  Then paste the returned `apiKey` into `studio/.env.local` as `XIANS_APIKEY`
+  and restart Agent Studio:
 
-### Issue 6: Memory Issues
+  ```bash
+  docker compose up -d --force-recreate agent-studio
+  ```
 
-**Symptoms:**
-- Services fail to start
-- Docker Desktop crashes
-- "Out of memory" errors
+### Issue 6: Cannot Sign in to Agent Studio
+
+**Symptoms:** No sign-in options, redirect loop, or "first user isn't admin".
+
+**Solutions:**
+
+- **Local login not showing / rejected**: The default local login needs
+  `LOCAL_AUTH_ENABLED=true` and `LOCAL_AUTH_USERS=<email>:<password>` in
+  `studio/.env.local`. `start-all.sh` sets these from `ADMIN_EMAIL` /
+  `ADMIN_PASSWORD`. Verify them and restart Studio:
+
+  ```bash
+  grep -E "LOCAL_AUTH_" studio/.env.local
+  docker compose up -d --force-recreate agent-studio
+  ```
+
+  Log in with the exact email and password in `LOCAL_AUTH_USERS`.
+- **Using OAuth instead — no providers configured**: Set Google/Azure/Visma
+  credentials in `studio/.env.local` and restart Studio (command above).
+- **Redirect/callback error (OAuth)**: Register the exact redirect URI with your
+  provider: `http://localhost:3000/api/auth/callback/<provider>`. Confirm
+  `NEXTAUTH_URL=http://localhost:3000` in `studio/.env.local`.
+- **First user isn't admin**: The signed-in identity's email must match
+  `ADMIN_EMAIL` used at bootstrap.
+
+### Issue 7: Memory Issues
+
+**Symptoms:** Services fail to start, Docker crashes, "out of memory".
 
 **Solution:**
-1. **Increase Docker Desktop memory:**
-   - Open Docker Desktop
-   - Go to Settings → Resources → Advanced
-   - Increase memory to 8GB+ (16GB recommended)
 
-2. **Close other applications** to free up RAM
+1. Increase Docker Desktop memory to 8GB+ (Settings → Resources → Advanced).
+2. Close other applications.
+3. Restart Docker Desktop.
 
-3. **Restart Docker Desktop**
-
-4. **Check system memory:**
 ```bash
 # macOS
 top -l 1 | grep PhysMem
-
 # Linux
 free -h
 ```
 
-### Issue 7: API Key Issues
+### Issue 8: OpenAI / LLM Errors
 
-**Symptoms:**
-- Server fails to start
-- Authentication errors in logs
-- "Invalid API key" messages
+**Symptoms:** Agent responses fail with authentication errors.
 
-**Solution:**
+**Solution:** Verify the key was propagated:
+
 ```bash
-# Check if API key is set
-cd server
-cat .env.local
-
-# If missing or incorrect, edit the existing file:
-# Find the line: Llm__ApiKey=
-# Replace it with: Llm__ApiKey=your-actual-openai-api-key
-
-# Or use sed to set it automatically:
-sed -i '' 's/Llm__ApiKey=/Llm__ApiKey=your-actual-openai-api-key/' .env.local
-
-# Restart the server
-docker compose restart xians-server
+grep Llm__ApiKey server/.env.local
 ```
 
-**Get an OpenAI API Key:**
-1. Go to https://platform.openai.com/api-keys
-2. Create a new API key
-3. Copy the key and add it to `server/.env.local`
-
-### Issue 8: Volume Permission Issues
-
-**Symptoms:**
-```
-Error response from daemon: failed to create shim: OCI runtime create failed
-```
-
-**Solution:**
-```bash
-# Clean up volumes
-docker volume prune
-
-# Or remove specific volumes
-docker volume rm postgresql-data keycloak-data
-
-# Restart services
-./start-all.sh
-```
+If empty, set `OPENAI_API_KEY` in the root `.env`, remove `server/.env.local`,
+and re-run `./start-all.sh` (or set `Llm__ApiKey` directly and restart the
+server: `docker compose restart xiansai-server`).
 
 ### Issue 9: Image Pull Failures
 
 **Symptoms:**
+
 ```
-Error response from daemon: manifest for 99xio/xiansai-server:latest not found
+Error response from daemon: manifest for 99xio/agent-studio:latest not found
 ```
 
 **Solution:**
+
 ```bash
-# Pull images manually
 docker pull 99xio/xiansai-server:latest
-docker pull 99xio/xiansai-ui:latest
-
-# Or pull all images
-docker compose pull
-
-# Check available tags
-docker search 99xio/xiansai-server
+docker pull 99xio/agent-studio:latest
+# or
+./pull-latest.sh
 ```
 
-### Issue 10: Slow Startup Times
+### Issue 10: MongoDB Start Errors on Windows
 
-**Symptoms:**
-- Services take a long time to start
-- Health checks timeout
+**Solution:** Ensure `mongodb/mongo-startup.sh` uses LF (not CRLF) line endings.
 
-**Solutions:**
-1. **Increase Docker resources:**
-   - More CPU cores
-   - More memory
-   - Faster disk (SSD recommended)
+### Issue 11: Temporal Search Attributes Not Registered
 
-2. **Use specific image versions:**
+**Symptoms:** Workflow search/filtering by `tenantId`/`agent` doesn't work.
+
+**Solution:**
+
 ```bash
-./start-all.sh -v v2.1.0
-```
+# Re-run the setup (Temporal must be running)
+./temporal/setup-search-attributes.sh
 
-3. **Start services individually:**
-```bash
-# Start databases first
-cd postgresql && docker compose up -d
-cd ../keycloak && docker-compose --env-file .env.local up -d
-
-# Then start main services
-cd .. && docker compose up -d
+# Verify
+./temporal/verify-search-attributes.sh
 ```
 
 ## 🔧 Advanced Troubleshooting
 
-### Debugging Service Dependencies
+### Inter-service Connectivity
 
-**Check service startup order:**
 ```bash
-# Start services in dependency order
-cd postgresql && docker compose up -d
-sleep 10
-cd ../keycloak && docker-compose --env-file .env.local up -d
-sleep 30
-cd ../temporal && docker compose up -d
-sleep 10
-cd .. && docker compose up -d
-```
+# From the server to MongoDB (service name on the shared network)
+docker exec xians-server ping mongodb
 
-### Debugging Network Connectivity
-
-**Test inter-service communication:**
-```bash
-# Test from server to MongoDB
-docker exec xians-server ping xians-mongodb
-
-# Test from server to Keycloak
-docker exec xians-server ping keycloak
-
-# Check network configuration
 docker network inspect xians-community-edition-network
 ```
 
-### Debugging Configuration Issues
+### Inspect Environment
 
-**Check environment variables:**
 ```bash
-# Check all environment variables
 docker exec xians-server env
-
-# Check specific service config
 docker exec postgresql env | grep POSTGRES
-docker exec keycloak env | grep KEYCLOAK
 ```
 
-### Performance Issues
+### Resource Usage
 
-**Monitor resource usage:**
 ```bash
-# Check container resource usage
 docker stats
-
-# Check disk usage
 docker system df
-
-# Clean up unused resources
-docker system prune -a
-```
-
-## 🆘 Getting Help
-
-### Before Asking for Help
-
-1. **Collect information:**
-```bash
-# System information
-docker --version
-docker compose version
-uname -a
-
-# Service status
-docker ps -a
-docker compose logs
-
-# Network information
-docker network ls
-docker network inspect xians-community-edition-network
-```
-
-2. **Check existing issues:**
-   - Search GitHub Issues for similar problems
-   - Check the documentation
-
-3. **Create a detailed report:**
-   - Include error messages
-   - Include system information
-   - Include logs
-   - Describe steps to reproduce
-
-### Where to Get Help
-
-1. **GitHub Issues**: For bug reports and feature requests
-2. **GitHub Discussions**: For questions and community help
-3. **Documentation**: Check this guide and other docs first
-
-### Creating Good Bug Reports
-
-**Include:**
-- **Error message**: Exact error text
-- **Steps to reproduce**: Step-by-step instructions
-- **System information**: OS, Docker version, etc.
-- **Logs**: Relevant service logs
-- **Expected behavior**: What should happen
-- **Actual behavior**: What actually happens
-
-**Example:**
-```
-**Error**: Container xians-server fails to start
-**Steps**: 
-1. Run ./start-all.sh
-2. Check docker ps
-3. See xians-server is not running
-
-**System**: macOS 13.0, Docker Desktop 4.15.0
-**Logs**: [paste relevant logs here]
-**Expected**: All services should start successfully
-**Actual**: xians-server container exits with code 1
+docker system prune -a   # careful: removes unused images/containers
 ```
 
 ## 🔄 Recovery Procedures
 
 ### Complete Reset
+
 ```bash
-# Stop everything
 ./stop-all.sh
-
-# Remove all containers and volumes
 ./reset-all.sh -f
-
-# Start fresh
 ./start-all.sh
 ```
 
-### Partial Reset
-```bash
-# Stop specific service
-docker compose stop xians-server
+### Partial Reset (single service)
 
-# Remove and recreate
-docker compose rm xians-server
-docker compose up -d xians-server
+```bash
+docker compose stop xiansai-server
+docker compose rm -f xiansai-server
+docker compose up -d xiansai-server
 ```
 
-### Data Recovery
-```bash
-# Backup before reset
-docker exec postgresql pg_dump -U temporal keycloak > backup.sql
-docker exec xians-mongodb mongodump --out /backup
+## 🆘 Getting Help
 
-# Restore after reset
-docker exec -i postgresql psql -U temporal keycloak < backup.sql
+Before asking for help, collect:
+
+```bash
+docker --version
+docker compose version
+uname -a
+docker ps -a
+docker compose logs
 ```
 
----
+- **GitHub Issues**: bug reports and feature requests
+- **GitHub Discussions**: questions and community help
 
-**Remember**: Most issues can be resolved by checking logs and following the troubleshooting steps above. If you're still having problems, create a detailed issue report with all the information requested. 
+When filing a bug, include the exact error message, steps to reproduce, system
+information, and relevant logs.

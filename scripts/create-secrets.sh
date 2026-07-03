@@ -17,7 +17,7 @@ echo "🔍 Checking which services need .env.local files..."
 SERVICES_TO_GENERATE=""
 EXISTING_FILES=""
 
-for service in keycloak postgresql temporal server mongodb ui; do
+for service in postgresql temporal server mongodb studio; do
     if [ -f "${service}/.env.local" ]; then
         EXISTING_FILES="${EXISTING_FILES}${service} "
     else
@@ -66,11 +66,11 @@ update_env_file() {
     local file="$1"
     local key="$2"
     local value="$3"
-    
+
     if [ -f "$file" ]; then
         # Create a temporary file
         local temp_file=$(mktemp)
-        
+
         # Process the file line by line
         while IFS= read -r line; do
             if [[ $line =~ ^${key}= ]]; then
@@ -81,13 +81,13 @@ update_env_file() {
                 echo "$line" >> "$temp_file"
             fi
         done < "$file"
-        
+
         # Check if key was found and replaced
         if ! grep -q "^${key}=" "$temp_file"; then
             # Key wasn't found, append it
             echo "${key}=${value}" >> "$temp_file"
         fi
-        
+
         # Replace the original file
         mv "$temp_file" "$file"
     else
@@ -101,7 +101,13 @@ service_needs_secrets() {
     echo "$SERVICES_TO_GENERATE" | grep -q "$service"
 }
 
-# Generate shared database credentials (used by both Temporal and Keycloak)
+# Helper to read a key from the root .env file
+read_root_env() {
+    local key="$1"
+    grep "^${key}=" "$ROOT_ENV_FILE" 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'"
+}
+
+# Generate shared database credentials (used by Temporal)
 echo "🗄️  Generating database credentials..."
 POSTGRES_USER="dbuser"
 POSTGRES_PASSWORD=$(generate_alphanumeric 32)
@@ -116,8 +122,6 @@ MONGO_APP_PASSWORD=$(generate_alphanumeric 32)
 
 # Load values from root .env file (REQUIRED)
 echo "📖 Reading configuration from root .env file..."
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Root .env file is in the parent directory of the script
 ROOT_ENV_FILE="$(dirname "$SCRIPT_DIR")/.env"
 
@@ -127,7 +131,6 @@ if [ ! -f "$ROOT_ENV_FILE" ]; then
     echo ""
     echo "The root .env file is required and must contain:"
     echo "  • OPENAI_API_KEY=your_openai_api_key"
-    echo "  • KEYCLOAK_ADMIN_PASSWORD=your_admin_password"
     echo ""
     echo "Please create the .env file in the project root directory."
     echo "You can copy .env.example as a starting point."
@@ -136,29 +139,26 @@ fi
 
 echo "   Found root .env file, reading required values..."
 
-# Read OPENAI_API_KEY from root .env
-OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" "$ROOT_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-# Read KEYCLOAK_ADMIN_PASSWORD from root .env
-KEYCLOAK_ADMIN_PASSWORD=$(grep "^KEYCLOAK_ADMIN_PASSWORD=" "$ROOT_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-# Read AUTH_HOST from root .env
-AUTH_HOST=$(grep "^AUTH_HOST=" "$ROOT_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-# Read XIANSUI_HOST from root .env
-XIANSUI_HOST=$(grep "^XIANSUI_HOST=" "$ROOT_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-# Read XIANSAPI_HOST from root .env
-XIANSAPI_HOST=$(grep "^XIANSAPI_HOST=" "$ROOT_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-# Read TEMPORAL_HOST from root .env
-TEMPORAL_HOST=$(grep "^TEMPORAL_HOST=" "$ROOT_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+OPENAI_API_KEY=$(read_root_env "OPENAI_API_KEY")
 
+# Agent Studio sign-in variables (URLs are local defaults)
+XIANSAPI_HOST="http://localhost:5001"
+STUDIO_HOST="http://localhost:3000"
+
+# OAuth provider credentials (optional - copied into studio/.env.local)
+GOOGLE_CLIENT_ID=$(read_root_env "GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET=$(read_root_env "GOOGLE_CLIENT_SECRET")
+AZURE_AD_CLIENT_ID=$(read_root_env "AZURE_AD_CLIENT_ID")
+AZURE_AD_CLIENT_SECRET=$(read_root_env "AZURE_AD_CLIENT_SECRET")
+AZURE_AD_TENANT_ID=$(read_root_env "AZURE_AD_TENANT_ID")
+VISMA_CONNECT_CLIENT_ID=$(read_root_env "VISMA_CONNECT_CLIENT_ID")
+VISMA_CONNECT_ISSUER=$(read_root_env "VISMA_CONNECT_ISSUER")
 
 # Validate that required values are present and not empty
 MISSING_VALUES=""
 
 if [ -z "$OPENAI_API_KEY" ]; then
     MISSING_VALUES="${MISSING_VALUES}  • OPENAI_API_KEY\n"
-fi
-
-if [ -z "$KEYCLOAK_ADMIN_PASSWORD" ]; then
-    MISSING_VALUES="${MISSING_VALUES}  • KEYCLOAK_ADMIN_PASSWORD\n"
 fi
 
 if [ -n "$MISSING_VALUES" ]; then
@@ -169,10 +169,6 @@ if [ -n "$MISSING_VALUES" ]; then
 fi
 
 echo "   ✓ OpenAI API Key: [SET] (${#OPENAI_API_KEY} characters)"
-echo "   ✓ Keycloak Admin Password: [SET] (${#KEYCLOAK_ADMIN_PASSWORD} characters)"
-
-# Use Keycloak admin credentials from root .env
-echo "🔐 Using Keycloak admin credentials from root .env file..."
 
 # Generate server encryption keys and secrets
 echo "🔑 Generating server encryption keys..."
@@ -181,9 +177,9 @@ CONVERSATION_MESSAGE_KEY=$(generate_base64_secret 32)
 TENANT_OIDC_SECRET_KEY=$(generate_base64_secret 32)
 APP_INTEGRATION_SECRET_KEY=$(generate_base64_secret 32)
 
-# Generate Temporal UI client secret
-echo "⏰ Generating Temporal UI client secret..."
-TEMPORAL_UI_CLIENT_SECRET=$(generate_alphanumeric 48)
+# Generate NextAuth secret for Agent Studio
+echo "🔐 Generating Agent Studio NextAuth secret..."
+NEXTAUTH_SECRET=$(generate_base64_secret 32)
 
 # Generate SSL certificate and password
 echo "📜 Generating SSL certificate..."
@@ -196,7 +192,7 @@ echo "📝 Creating .env.local files from templates..."
 for service in $SERVICES_TO_GENERATE; do
     example_file="${service}/.env.example"
     local_file="${service}/.env.local"
-    
+
     if [ -f "$example_file" ]; then
         echo "   Creating $local_file from $example_file"
         cp "$example_file" "$local_file"
@@ -205,7 +201,7 @@ for service in $SERVICES_TO_GENERATE; do
     fi
 done
 
-# Update PostgreSQL credentials (only for services that need them)
+# Update PostgreSQL / Temporal credentials
 if service_needs_secrets "postgresql" || service_needs_secrets "temporal"; then
     echo "📝 Updating PostgreSQL credentials..."
     if service_needs_secrets "temporal"; then
@@ -216,29 +212,6 @@ if service_needs_secrets "postgresql" || service_needs_secrets "temporal"; then
         update_env_file "postgresql/.env.local" "POSTGRES_USER" "$POSTGRES_USER"
         update_env_file "postgresql/.env.local" "POSTGRES_PASSWORD" "$POSTGRES_PASSWORD"
     fi
-fi
-
-# Update Temporal UI client secret and HOST_IP
-if service_needs_secrets "temporal"; then
-    echo "📝 Updating Temporal UI client secret and HOST_IP..."
-    update_env_file "temporal/.env.local" "TEMPORAL_UI_CLIENT_SECRET" "$TEMPORAL_UI_CLIENT_SECRET"
-    update_env_file "temporal/.env.local" "AUTH_HOST" "$AUTH_HOST"
-    update_env_file "temporal/.env.local" "TEMPORAL_HOST" "$TEMPORAL_HOST"
-fi
-
-# Update Keycloak credentials (using same DB credentials)
-if service_needs_secrets "keycloak"; then
-    echo "📝 Updating Keycloak credentials..."
-    update_env_file "keycloak/.env.local" "KEYCLOAK_ADMIN_PASSWORD" "$KEYCLOAK_ADMIN_PASSWORD"
-    update_env_file "keycloak/.env.local" "KC_DB_USERNAME" "$POSTGRES_USER"
-    update_env_file "keycloak/.env.local" "KC_DB_PASSWORD" "$POSTGRES_PASSWORD"
-    update_env_file "keycloak/.env.local" "TEMPORAL_UI_CLIENT_SECRET" "$TEMPORAL_UI_CLIENT_SECRET"
-    
-    echo "📝 Updating Keycloak URL variables..."
-    update_env_file "keycloak/.env.local" "TEMPORAL_HOST" "$TEMPORAL_HOST"
-    update_env_file "keycloak/.env.local" "XIANSUI_HOST" "$XIANSUI_HOST"
-
-    update_env_file "keycloak/.env.local" "AUTH_HOST" "$AUTH_HOST"
 fi
 
 # Update Server secrets
@@ -252,19 +225,14 @@ if service_needs_secrets "server"; then
     update_env_file "server/.env.local" "EncryptionKeys__UniqueSecrets__AppIntegrationSecretKey" "$APP_INTEGRATION_SECRET_KEY"
 
     echo "📝 Updating server CORS configuration..."
-    update_env_file "server/.env.local" "Cors__AllowedOrigins__1" "$XIANSUI_HOST"
+    update_env_file "server/.env.local" "Cors__AllowedOrigins__1" "$STUDIO_HOST"
 
     echo "📝 Updating server MongoDB connection string..."
     MONGO_CONNECTION_STRING="mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongodb:27017/${MONGO_DB_NAME}?replicaSet=rs0&retryWrites=true&w=majority&authSource=${MONGO_DB_NAME}"
     update_env_file "server/.env.local" "MongoDB__ConnectionString" "$MONGO_CONNECTION_STRING"
-    
+
     echo "📝 Updating OpenAI API key in server configuration..."
     update_env_file "server/.env.local" "Llm__ApiKey" "$OPENAI_API_KEY"
-
-
-    echo "📝 Updating server Keycloak URL..."
-    update_env_file "server/.env.local" "Keycloak__AuthServerUrl" "$AUTH_HOST"
-    update_env_file "server/.env.local" "Keycloak__ValidIssuer" "$AUTH_HOST/realms/xiansai"
 fi
 
 # Update MongoDB credentials
@@ -277,11 +245,20 @@ if service_needs_secrets "mongodb"; then
     update_env_file "mongodb/.env.local" "MONGO_DB_NAME" "$MONGO_DB_NAME"
 fi
 
-# Update UI configuration
-if service_needs_secrets "ui"; then
-    echo "📝 Updating UI configuration..."
-    update_env_file "ui/.env.local" "XIANSAPI_HOST" "$XIANSAPI_HOST"
-    update_env_file "ui/.env.local" "AUTH_HOST" "$AUTH_HOST"
+# Update Agent Studio configuration
+if service_needs_secrets "studio"; then
+    echo "📝 Updating Agent Studio configuration..."
+    update_env_file "studio/.env.local" "NEXTAUTH_SECRET" "$NEXTAUTH_SECRET"
+    update_env_file "studio/.env.local" "NEXTAUTH_URL" "$STUDIO_HOST"
+
+    # Copy any provided OAuth provider credentials from the root .env file.
+    [ -n "$GOOGLE_CLIENT_ID" ] && update_env_file "studio/.env.local" "GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_ID"
+    [ -n "$GOOGLE_CLIENT_SECRET" ] && update_env_file "studio/.env.local" "GOOGLE_CLIENT_SECRET" "$GOOGLE_CLIENT_SECRET"
+    [ -n "$AZURE_AD_CLIENT_ID" ] && update_env_file "studio/.env.local" "AZURE_AD_CLIENT_ID" "$AZURE_AD_CLIENT_ID"
+    [ -n "$AZURE_AD_CLIENT_SECRET" ] && update_env_file "studio/.env.local" "AZURE_AD_CLIENT_SECRET" "$AZURE_AD_CLIENT_SECRET"
+    [ -n "$AZURE_AD_TENANT_ID" ] && update_env_file "studio/.env.local" "AZURE_AD_TENANT_ID" "$AZURE_AD_TENANT_ID"
+    [ -n "$VISMA_CONNECT_CLIENT_ID" ] && update_env_file "studio/.env.local" "VISMA_CONNECT_CLIENT_ID" "$VISMA_CONNECT_CLIENT_ID"
+    [ -n "$VISMA_CONNECT_ISSUER" ] && update_env_file "studio/.env.local" "VISMA_CONNECT_ISSUER" "$VISMA_CONNECT_ISSUER"
 fi
 
 echo ""
@@ -289,7 +266,7 @@ echo "✅ Secret creation completed successfully!"
 echo ""
 echo "📊 Generated secrets for services: $SERVICES_TO_GENERATE"
 
-if service_needs_secrets "postgresql" || service_needs_secrets "temporal" || service_needs_secrets "keycloak"; then
+if service_needs_secrets "postgresql" || service_needs_secrets "temporal"; then
     echo "   🗄️  PostgreSQL password: ${POSTGRES_PASSWORD:0:8}... (32 chars)"
 fi
 
@@ -298,32 +275,21 @@ if service_needs_secrets "mongodb"; then
     echo "   🍃 MongoDB app password: ${MONGO_APP_PASSWORD:0:8}... (32 chars)"
 fi
 
-if service_needs_secrets "keycloak"; then
-    echo "   🔐 Keycloak admin password: ${KEYCLOAK_ADMIN_PASSWORD:0:8}... (${#KEYCLOAK_ADMIN_PASSWORD} chars)"
-fi
-
-if service_needs_secrets "temporal"; then
-    echo "   ⏰ Temporal UI client secret: ${TEMPORAL_UI_CLIENT_SECRET:0:8}... (48 chars)"
-fi
-
 if service_needs_secrets "server"; then
     echo "   📜 SSL certificate password: ${CERT_PASSWORD:0:8}... (24 chars)"
     echo "   📜 SSL certificate (PFX): ${CERT_BASE64:0:32}... (base64, ~4KB)"
-    echo "   🌐 WebSocket secrets: 2 secrets generated (32 chars each)"
-    echo "   🔑 Encryption keys: 3 keys generated (base64 encoded)"
+    echo "   🔑 Encryption keys: 4 keys generated (base64 encoded)"
 fi
 
-if service_needs_secrets "ui"; then
-    echo "   🖥️  UI Host IP: $HOST_IP"
+if service_needs_secrets "studio"; then
+    echo "   🔐 Agent Studio NextAuth secret: ${NEXTAUTH_SECRET:0:8}... (base64)"
 fi
 echo ""
 echo "⚠️  IMPORTANT NOTES:"
 echo "   • This script only generates secrets for services missing .env.local files"
 echo "   • Existing .env.local files are preserved and skipped"
 echo "   • All database passwords have been randomly generated for security"
-echo "   • PostgreSQL credentials are shared between Temporal and Keycloak"
 echo "   • MongoDB has separate admin and application users for security"
-echo "   • Keycloak admin password and OpenAI API key are read from root .env file (REQUIRED)"
-echo "   • Root .env file must exist and contain valid OPENAI_API_KEY and KEYCLOAK_ADMIN_PASSWORD"
+echo "   • OpenAI API key is read from the root .env file (REQUIRED)"
 echo "   • These secrets are now stored in .env.local files (not in git)"
 echo ""

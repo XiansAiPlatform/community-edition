@@ -119,31 +119,31 @@ services:
         max-size: ${LOG_MAX_SIZE:-50m}
         max-file: ${LOG_MAX_FILE:-2}
 
-  xiansai-ui:
-    image: ${UI_IMAGE:-99xio/xiansai-ui:latest}
-    container_name: xians-ui
+  agent-studio:
+    image: ${STUDIO_IMAGE:-99xio/agent-studio:latest}
+    container_name: xians-agent-studio
     restart: unless-stopped
     ports:
-      - "${UI_EXTERNAL_PORT:-3001}:8080"
+      - "${STUDIO_EXTERNAL_PORT:-3000}:3000"
     env_file:
-      - ui/.env.local
+      - studio/.env.local
     networks:
       - xians-community-edition
     depends_on:
       xiansai-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 40s
     deploy:
       resources:
         limits:
-          memory: ${UI_MEMORY_LIMIT:-256M}
+          memory: ${STUDIO_MEMORY_LIMIT:-512M}
         reservations:
-          memory: ${UI_MEMORY_RESERVATION:-128M}
+          memory: ${STUDIO_MEMORY_RESERVATION:-256M}
     logging:
       driver: ${LOGGING_DRIVER:-local}
       options:

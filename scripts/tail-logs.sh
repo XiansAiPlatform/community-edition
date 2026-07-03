@@ -55,11 +55,8 @@ case "${1:-recent}" in
     "xians-server"|"server")
         tail_service "xians-server"
         ;;
-    "xians-ui"|"ui")
-        tail_service "xians-ui"
-        ;;
-    "keycloak")
-        tail_service "keycloak"
+    "agent-studio"|"studio")
+        tail_service "xians-agent-studio"
         ;;
     "temporal")
         tail_service "temporal"
@@ -69,9 +66,6 @@ case "${1:-recent}" in
         ;;
     "postgresql"|"postgres")
         tail_service "postgresql"
-        ;;
-    "elasticsearch"|"elastic")
-        tail_service "temporal-elasticsearch"
         ;;
     *)
         echo "🔍 XiansAi Log Monitor"
@@ -83,12 +77,10 @@ case "${1:-recent}" in
         echo "  recent     - Show recent logs from all containers (default)"
         echo "  tail       - Tail all logs in real-time"
         echo "  server     - Tail XiansAi Server logs"
-        echo "  ui         - Tail XiansAi UI logs"
-        echo "  keycloak   - Tail Keycloak logs"
+        echo "  studio     - Tail Agent Studio logs"
         echo "  temporal   - Tail Temporal logs"
         echo "  mongo      - Tail MongoDB logs"
         echo "  postgres   - Tail PostgreSQL logs"
-        echo "  elastic    - Tail Elasticsearch logs"
         echo
         echo "Examples:"
         echo "  $0              # Show recent logs"

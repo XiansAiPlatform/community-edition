@@ -90,10 +90,6 @@ docker compose -p $PROJECT_NAME down -v --remove-orphans
 echo "   • Stopping Temporal services..."
 docker compose -p $PROJECT_NAME -f temporal/docker-compose.yml down -v --remove-orphans 2>/dev/null || echo "     (Temporal services not running)"
 
-# Stop Keycloak services (if running)
-echo "   • Stopping Keycloak services..."
-docker compose -p $PROJECT_NAME -f keycloak/docker-compose.yml down -v --remove-orphans 2>/dev/null || echo "     (Keycloak services not running)"
-
 # Stop PostgreSQL services (if running)
 echo "   • Stopping PostgreSQL services..."
 docker compose -p $PROJECT_NAME -f postgresql/docker-compose.yml down -v --remove-orphans 2>/dev/null || echo "     (PostgreSQL services not running)"

@@ -54,15 +54,15 @@ echo "🔧 Pulling main XiansAi application images..."
 echo "   • Pulling XiansAi Server image..."
 docker pull 99xio/xiansai-server:$VERSION
 
-echo "   • Pulling XiansAi UI image..."
-docker pull 99xio/xiansai-ui:$VERSION
+echo "   • Pulling Agent Studio image..."
+docker pull 99xio/agent-studio:$VERSION
 
 echo ""
 echo "✅ All images pulled successfully!"
 echo ""
 echo "📋 Pulled images:"
 echo "   • XiansAi Server: 99xio/xiansai-server:$VERSION"
-echo "   • XiansAi UI: 99xio/xiansai-ui:$VERSION"
+echo "   • Agent Studio: 99xio/agent-studio:$VERSION"
 echo ""
 echo "💡 Next steps:"
 echo "   • Start services: ./start-all.sh"
