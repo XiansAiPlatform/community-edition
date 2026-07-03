@@ -10,7 +10,7 @@ echo "🔍 Verifying Temporal search attributes..."
 # Check if Temporal container is available
 if ! docker ps | grep -q "temporal"; then
     echo "❌ Temporal container is not running"
-    echo "Please start Temporal services first: ./start-with-temporal.sh"
+    echo "Please start the platform first: ./start-all.sh"
     exit 1
 fi
 

@@ -146,6 +146,11 @@ REQUIREMENTS:
     - Docker installed for image validation
     - Release notes file in ./releases/VERSION.md
 
+WORKFLOW:
+    1. Run ./scripts/publish.sh to publish all upstream artifacts
+    2. Run ./scripts/workflow-monitor.sh to wait for their GitHub Actions
+    3. Run this script to create the community edition release
+
 EOF
 }
 
@@ -211,7 +216,7 @@ check_release_notes() {
     
     if [[ ! -f "$notes_file" ]]; then
         log_error "Release notes not found: $notes_file"
-        log_info "Please create release notes using: ./create-release-notes.sh $version"
+        log_info "Please create release notes using: ./scripts/create-release-notes.sh $version"
         exit 1
     fi
     
@@ -222,17 +227,30 @@ check_release_notes() {
 validate_docker_images() {
     local version=$1
     log_info "Validating Docker images for version $version..."
-    
-    if command -v docker &> /dev/null; then
-        # Test if the platform starts with the new version
-        log_info "Testing platform startup with version $version..."
-        if ./start-all.sh -v "$version" --test 2>/dev/null; then
-            log_success "Docker images validated successfully"
-            ./stop-all.sh >/dev/null 2>&1 || true
-        else
-            log_warning "Could not validate Docker images (they might not be published yet)"
-        fi
+
+    if ! command -v docker &> /dev/null; then
+        log_warning "Docker is not installed. Skipping Docker image validation."
+        return
     fi
+
+    # Validate the compose configuration is parseable
+    if ! docker compose config >/dev/null 2>&1; then
+        log_warning "docker compose config validation failed"
+    fi
+
+    # Verify the versioned images are pullable (they may not be published yet)
+    local images=(
+        "99xio/xiansai-server:$version"
+        "99xio/agent-studio:$version"
+    )
+    for image in "${images[@]}"; do
+        log_info "Checking image: $image"
+        if docker pull "$image" >/dev/null 2>&1; then
+            log_success "Verified $image"
+        else
+            log_warning "Could not pull $image (it might not be published yet)"
+        fi
+    done
 }
 
 # Create git tag

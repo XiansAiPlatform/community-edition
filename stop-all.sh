@@ -5,8 +5,16 @@
 
 set -e
 
-# Project configuration
-COMPOSE_PROJECT_NAME="xians-community-edition"
+# Load environment variables from .env if present (for COMPOSE_PROJECT_NAME)
+if [ -f ".env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source ".env"
+    set +a
+fi
+
+# Project configuration (overridable via .env)
+: "${COMPOSE_PROJECT_NAME:=xians-community-edition}"
 
 echo "🛑 Stopping XiansAi Community Edition with Temporal Workflow Engine..."
 
@@ -34,15 +42,15 @@ done
 
 # Stop Temporal services first
 echo "⚡ Stopping Temporal services..."
-docker compose -p $COMPOSE_PROJECT_NAME -f temporal/docker-compose.yml --env-file temporal/.env.local down
+docker compose -p "$COMPOSE_PROJECT_NAME" -f temporal/docker-compose.yml --env-file temporal/.env.local down
 
 # Stop PostgreSQL service
 echo "🗄️  Stopping PostgreSQL service..."
-docker compose -p $COMPOSE_PROJECT_NAME -f postgresql/docker-compose.yml --env-file postgresql/.env.local down
+docker compose -p "$COMPOSE_PROJECT_NAME" -f postgresql/docker-compose.yml --env-file postgresql/.env.local down
 
 # Stop main application services
 echo "🔧 Stopping main application services..."
-docker compose -p $COMPOSE_PROJECT_NAME down
+docker compose -p "$COMPOSE_PROJECT_NAME" down
 
 echo ""
 echo "✅ All services stopped successfully!"

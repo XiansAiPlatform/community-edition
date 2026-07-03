@@ -99,7 +99,7 @@ The "POSTGRESQL_VERSION" variable is not set. Defaulting to a blank string.
 ```bash
 # Ensure the root .env exists and has the required values
 cp .env.example .env
-# Set ADMIN_EMAIL and OPENAI_API_KEY, then:
+# Set ADMIN_EMAIL and ADMIN_PASSWORD, then:
 ./start-all.sh
 ```
 
@@ -192,19 +192,22 @@ top -l 1 | grep PhysMem
 free -h
 ```
 
-### Issue 8: OpenAI / LLM Errors
+### Issue 8: LLM Errors
 
-**Symptoms:** Agent responses fail with authentication errors.
+**Symptoms:** Agent responses fail with authentication or provider errors.
 
-**Solution:** Verify the key was propagated:
+**Solution:** Configure the LLM provider credentials for the server. These can
+be managed in-app or set directly in `server/.env.local`:
 
 ```bash
 grep Llm__ApiKey server/.env.local
 ```
 
-If empty, set `OPENAI_API_KEY` in the root `.env`, remove `server/.env.local`,
-and re-run `./start-all.sh` (or set `Llm__ApiKey` directly and restart the
-server: `docker compose restart xiansai-server`).
+After updating the value, restart the server:
+
+```bash
+docker compose restart xiansai-server
+```
 
 ### Issue 9: Image Pull Failures
 

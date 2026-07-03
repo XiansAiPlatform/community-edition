@@ -7,7 +7,6 @@ set -e
 
 # Default Configuration (can be overridden via command line)
 VERSION="latest"
-COMPOSE_PROJECT_NAME="xians-community-edition"
 
 echo "📥 Pulling latest XiansAi Community Edition images from DockerHub..."
 

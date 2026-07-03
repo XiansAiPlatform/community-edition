@@ -56,7 +56,6 @@ else
 fi
 
 # Parse command line arguments
-DETACHED=true
 OBSERVABILITY=false
 OBSERVABILITY_AZURE=false
 
@@ -65,10 +64,6 @@ while [[ $# -gt 0 ]]; do
         -v|--version)
             VERSION="$2"
             shift 2
-            ;;
-        -d|--detached)
-            DETACHED=true
-            shift
             ;;
         --observability)
             OBSERVABILITY=true
@@ -82,7 +77,6 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [options]"
             echo "Options:"
             echo "  -v, --version VERSION    Docker image version (default: latest)"
-            echo "  -d, --detached           Run in detached mode (default)"
             echo "  --observability          Start Aspire Dashboard for OTel traces/metrics/logs"
             echo "  --observability-azure    Start OTEL Collector for Azure App Insights export"
             echo "  -h, --help               Show this help message"
@@ -116,7 +110,7 @@ echo ""
 # Start MongoDB and the XiansAi Server first (NOT Agent Studio yet — it needs the
 # bootstrapped API key which is only available once the server is healthy).
 echo "🔧 Starting MongoDB and XiansAi Server..."
-docker compose up -d mongodb xiansai-server
+docker compose -p "$COMPOSE_PROJECT_NAME" up -d mongodb xiansai-server
 
 # Wait a moment for the network to be created
 sleep 2
@@ -132,7 +126,7 @@ sleep 10
 # Start Aspire Dashboard (optional — enabled via --observability flag)
 if [ "$OBSERVABILITY" = true ]; then
     echo "📡 Starting Aspire Dashboard for observability..."
-    docker compose --profile dev up -d aspire-dashboard
+    docker compose -p "$COMPOSE_PROJECT_NAME" --profile dev up -d aspire-dashboard
     echo "✅ Aspire Dashboard started"
 else
     echo "ℹ️  Observability (Aspire Dashboard) skipped — use --observability to enable"
@@ -141,7 +135,7 @@ fi
 # Start OTEL Collector for Azure export (optional — enabled via --observability-azure flag)
 if [ "$OBSERVABILITY_AZURE" = true ]; then
     echo "☁️  Starting OTEL Collector for Azure App Insights export..."
-    docker compose --profile observability-azure up -d otel-collector
+    docker compose -p "$COMPOSE_PROJECT_NAME" --profile observability-azure up -d otel-collector
     echo "✅ OTEL Collector started (OTLP gRPC: localhost:4317)"
 else
     echo "ℹ️  Azure observability collector skipped — use --observability-azure to enable"
@@ -261,7 +255,7 @@ fi
 # Start Agent Studio (now that the API key is in place)
 # ---------------------------------------------------------------------------
 echo "🖥️  Starting Agent Studio..."
-docker compose up -d agent-studio
+docker compose -p "$COMPOSE_PROJECT_NAME" up -d agent-studio
 
 echo ""
 echo "✅ All services started successfully!"

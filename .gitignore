@@ -1,5 +1,3 @@
-# Note: .env.development and .env.production are needed for Docker Compose configuration
-
 */tls/certs/*
 
 # All environment files with sensitive data
@@ -26,9 +24,14 @@ logs/
 
 # IDE
 .vscode/
+.vs/
 .idea/
 *.swp
 *.swo
+
+# Certificate generator scratch dirs
+temp_cert_*
+temp_server_cert_*
 
 # OS
 .DS_Store

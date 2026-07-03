@@ -12,8 +12,8 @@ This guide covers the complete release process for maintainers of the XiansAi Pl
 ### For Users
 
 - [Quick Start Guide](../README.md#-quick-start)
-- [Configuration Options](../README.md#-configuration)
-- [Access URLs](../README.md#access-the-applications)
+- [Management Scripts](../README.md#-management-scripts)
+- [Access URLs](../README.md#-access-the-applications)
 
 ### For Contributors
 
@@ -33,15 +33,20 @@ This guide covers the complete release process for maintainers of the XiansAi Pl
 
 ```
 releases/
-├── v2.1.0.md          # Release notes for v2.1.0 (example)
-└── TEMPLATE.md        # Template for new release notes
+└── v3.30.0.md         # Release notes, one file per version
 
 scripts/
-└── create-release-notes.sh  # Helper script for release notes
+├── create-release-notes.sh  # Generates a release notes template
+├── publish.sh               # Tags upstream repos to trigger their CI
+├── workflow-monitor.sh      # Monitors upstream GitHub Actions
+└── release.sh               # Creates the community-edition GitHub release
 
 .github/workflows/
-└── release.yml        # Automated release workflow
+└── release.yml        # Tag-triggered validation of the release notes and compose config
 ```
+
+The release notes template is generated inline by `scripts/create-release-notes.sh`;
+there is no separate `TEMPLATE.md` file.
 
 ## 📋 Overview
 
@@ -62,8 +67,8 @@ Our release process includes:
 #### 1. **Prepare Release Notes**
 
 ```bash
-# Create a new release branch
-export VERSION=v2.1.0
+# Set the version you are releasing
+export VERSION=v3.31.0
 ```
 
 ```bash
@@ -98,7 +103,7 @@ export VERSION=v2.1.0
 
 ```bash
 # After all artifacts are published successfully
-./release.sh $VERSION
+./scripts/release.sh $VERSION
 ```
 
 ### Quick Release Process
@@ -114,7 +119,7 @@ For experienced maintainers:
 ./scripts/publish.sh $VERSION && ./scripts/workflow-monitor.sh $VERSION
 
 # 3. Create community release
-./release.sh $VERSION
+./scripts/release.sh $VERSION
 ```
 
 ### For Pre-releases
@@ -124,11 +129,11 @@ For experienced maintainers:
 ./scripts/create-release-notes.sh $VERSION-beta.1
 ./scripts/publish.sh $VERSION-beta.1
 ./scripts/workflow-monitor.sh $VERSION-beta.1
-./release.sh $VERSION-beta.1 --prerelease
+./scripts/release.sh $VERSION-beta.1 --prerelease
 
 # Release candidate
 ./scripts/publish.sh $VERSION-rc.1
-./release.sh $VERSION-rc.1 --prerelease
+./scripts/release.sh $VERSION-rc.1 --prerelease
 ```
 
 ## 📅 Release Schedule
@@ -203,7 +208,7 @@ graph TD
     M --> O
     N --> O
     
-    O --> P[Run release.sh]
+    O --> P[Run scripts/release.sh]
     P --> Q[GitHub Release: community-edition]
 ```
 
@@ -250,7 +255,7 @@ graph TD
 - `./reset-all.sh` - Reset and cleanup
 
 ### Release Management Scripts
-- `./release.sh v2.1.0` - Create a release
+- `./scripts/release.sh v2.1.0` - Create a release
 - `./scripts/create-release-notes.sh v2.1.0` - Generate release notes template
 - `./scripts/publish.sh v2.1.0` - Publish artifacts across all repositories
 - `./scripts/workflow-monitor.sh v2.1.0` - Monitor GitHub Actions workflows
@@ -293,7 +298,7 @@ graph TD
 ./scripts/workflow-monitor.sh v2.1.0 --show-logs   # Show failure logs
 ```
 
-#### `./release.sh` - Community Edition Release
+#### `./scripts/release.sh` - Community Edition Release
 
 **Features:**
 
@@ -305,9 +310,9 @@ graph TD
 **Usage:**
 
 ```bash
-./release.sh v2.1.0                    # Create stable release
-./release.sh v2.1.0-beta.1 --prerelease  # Create pre-release
-./release.sh v2.1.0 --draft            # Create draft release
+./scripts/release.sh v2.1.0                    # Create stable release
+./scripts/release.sh v2.1.0-beta.1 --prerelease  # Create pre-release
+./scripts/release.sh v2.1.0 --draft            # Create draft release
 ```
 
 #### `./scripts/create-release-notes.sh` - Release Notes Generator
@@ -348,12 +353,11 @@ All Docker images support:
 
 ### Image Validation
 
-The publish script validates Docker images by:
+`scripts/release.sh` validates Docker images by:
 
-1. Testing docker-compose configuration
-2. Attempting to start services with new version
-3. Verifying health checks pass
-4. Cleaning up test environment
+1. Validating the `docker compose config` output
+2. Attempting to `docker pull` the versioned `99xio/xiansai-server` and `99xio/agent-studio` images
+3. Warning (without failing) if an image is not published yet
 
 ## 🧪 Testing Before Release
 
@@ -377,16 +381,12 @@ The publish script validates Docker images by:
 # Test platform startup with new version
 ./start-all.sh -v v2.1.0
 
-# Test different environments
-./start-all.sh -v v2.1.0 -e staging
-./start-all.sh -v v2.1.0 -e production
-
 # Test reset functionality
 ./reset-all.sh -f
 
 # Test complete release process
 ./scripts/publish.sh v2.1.0 --dry-run
-./release.sh v2.1.0 --dry-run
+./scripts/release.sh v2.1.0 --dry-run
 ```
 
 ## 🤖 Automated Workflows
@@ -539,8 +539,8 @@ gh run list --repo XiansAiPlatform/XiansAi.Docs
 docker --version
 docker compose --version
 
-# Test manually
-./start-all.sh -v v2.1.0 --test
+# Validate the compose config manually
+docker compose config
 ```
 
 ### Repository Path Issues
@@ -569,8 +569,8 @@ If repositories are not in expected locations:
 ## 📋 Support
 
 For questions and support:
-- **Issues**: [GitHub Issues](https://github.com/flowmaxer-ai/community-edition/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/flowmaxer-ai/community-edition/discussions)
+- **Issues**: [GitHub Issues](https://github.com/XiansAiPlatform/community-edition/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/XiansAiPlatform/community-edition/discussions)
 - **Documentation**: This release guide and repository documentation
 
 ## 📚 Additional Resources

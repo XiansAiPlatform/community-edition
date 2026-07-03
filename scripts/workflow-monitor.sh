@@ -437,7 +437,7 @@ main() {
     case $result in
         0)
             log_success "All workflows completed successfully!"
-            log_info "You can now run: ./release.sh $version"
+            log_info "You can now run: ./scripts/release.sh $version"
             ;;
         1)
             log_error "Some workflows failed. Please check the logs and fix issues."

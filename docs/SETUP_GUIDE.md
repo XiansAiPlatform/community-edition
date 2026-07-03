@@ -144,7 +144,6 @@ Edit `.env` and set:
 |----------|----------|-------------|
 | `ADMIN_EMAIL` | Yes* | Email of the first administrator. Bootstraps the platform, becomes your `SysAdmin` identity, and is your Agent Studio login username. If empty, `start-all.sh` prompts for it. |
 | `ADMIN_PASSWORD` | Yes* | Password for the Agent Studio local login. If empty, `start-all.sh` prompts for one (or generates and prints it). |
-| `OPENAI_API_KEY` | Yes | OpenAI API key used by the server. |
 | OAuth provider | Optional | Google, Microsoft/Azure AD, or Visma Connect credentials — only if you prefer SSO over the local login. |
 
 Example:
@@ -152,16 +151,13 @@ Example:
 ```bash
 ADMIN_EMAIL=admin@your-domain.com
 ADMIN_PASSWORD=choose-a-strong-password
-OPENAI_API_KEY=sk-your-openai-api-key-here
 ```
-
-Get an OpenAI API key at https://platform.openai.com/api-keys.
 
 ### 2. Generated files
 
 On first `./start-all.sh`, secrets are generated into:
 
-- `server/.env.local` - MongoDB connection string, encryption keys, certificate, OpenAI key, CORS
+- `server/.env.local` - MongoDB connection string, encryption keys, certificate, CORS
 - `mongodb/.env.local` - MongoDB users/passwords
 - `postgresql/.env.local` and `temporal/.env.local` - shared PostgreSQL credentials
 - `studio/.env.local` - `NEXTAUTH_SECRET`, local login (`LOCAL_AUTH_ENABLED`, `LOCAL_AUTH_USERS`), any OAuth credentials, and `XIANS_APIKEY` (filled at bootstrap)
@@ -190,7 +186,7 @@ This will:
 
 ```bash
 # Specific image version
-./start-all.sh -v v2.1.0
+./start-all.sh -v v3.30.0
 
 # With Aspire Dashboard (local OTel traces/metrics/logs)
 ./start-all.sh --observability
@@ -262,6 +258,11 @@ If you prefer SSO, configure one provider instead of (or in addition to) local l
 - **Agent Studio**: http://localhost:3000
 - **XiansAi Server API**: http://localhost:5001/api-docs
 - **Temporal Web UI**: http://localhost:8080 (unauthenticated, local only)
+
+### Optional Observability Services
+
+- **Aspire Dashboard**: http://localhost:18888 — started with `./start-all.sh --observability` (traces, metrics, logs)
+- **OTEL Collector** (Azure App Insights export): OTLP gRPC on localhost:4317 — started with `./start-all.sh --observability-azure`
 
 ### Database Services
 

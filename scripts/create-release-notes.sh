@@ -12,7 +12,6 @@ NC='\033[0m'
 
 # Configuration
 RELEASES_DIR="./releases"
-TEMPLATE_FILE="./releases/TEMPLATE.md"
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -175,7 +174,7 @@ INSTRUCTIONS FOR EDITING THIS TEMPLATE:
 EOF
     
     log_success "Release notes template created: $notes_file"
-    log_info "Please edit the template with actual release information before running ./release.sh"
+    log_info "Please edit the template with actual release information before running ./scripts/release.sh"
     
     # Open in editor if available
     if command -v code &> /dev/null; then

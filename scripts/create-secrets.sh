@@ -42,12 +42,6 @@ else
     exit 0
 fi
 
-# Function to generate secure random password
-generate_password() {
-    local length=${1:-32}
-    openssl rand -base64 $((length * 3 / 4)) | tr -d "=+/" | cut -c1-${length}
-}
-
 # Function to generate base64 encoded secret
 generate_base64_secret() {
     local length=${1:-64}
@@ -129,20 +123,14 @@ ROOT_ENV_FILE="$(dirname "$SCRIPT_DIR")/.env"
 if [ ! -f "$ROOT_ENV_FILE" ]; then
     echo "❌ ERROR: Root .env file not found at $ROOT_ENV_FILE"
     echo ""
-    echo "The root .env file is required and must contain:"
-    echo "  • OPENAI_API_KEY=your_openai_api_key"
-    echo ""
     echo "Please create the .env file in the project root directory."
     echo "You can copy .env.example as a starting point."
     exit 1
 fi
 
-echo "   Found root .env file, reading required values..."
-
-OPENAI_API_KEY=$(read_root_env "OPENAI_API_KEY")
+echo "   Found root .env file, reading values..."
 
 # Agent Studio sign-in variables (URLs are local defaults)
-XIANSAPI_HOST="http://localhost:5001"
 STUDIO_HOST="http://localhost:3000"
 
 # OAuth provider credentials (optional - copied into studio/.env.local)
@@ -153,22 +141,6 @@ AZURE_AD_CLIENT_SECRET=$(read_root_env "AZURE_AD_CLIENT_SECRET")
 AZURE_AD_TENANT_ID=$(read_root_env "AZURE_AD_TENANT_ID")
 VISMA_CONNECT_CLIENT_ID=$(read_root_env "VISMA_CONNECT_CLIENT_ID")
 VISMA_CONNECT_ISSUER=$(read_root_env "VISMA_CONNECT_ISSUER")
-
-# Validate that required values are present and not empty
-MISSING_VALUES=""
-
-if [ -z "$OPENAI_API_KEY" ]; then
-    MISSING_VALUES="${MISSING_VALUES}  • OPENAI_API_KEY\n"
-fi
-
-if [ -n "$MISSING_VALUES" ]; then
-    echo "❌ ERROR: Required values missing or empty in root .env file:"
-    echo -e "$MISSING_VALUES"
-    echo "Please set these values in $ROOT_ENV_FILE and try again."
-    exit 1
-fi
-
-echo "   ✓ OpenAI API Key: [SET] (${#OPENAI_API_KEY} characters)"
 
 # Generate server encryption keys and secrets
 echo "🔑 Generating server encryption keys..."
@@ -230,9 +202,6 @@ if service_needs_secrets "server"; then
     echo "📝 Updating server MongoDB connection string..."
     MONGO_CONNECTION_STRING="mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongodb:27017/${MONGO_DB_NAME}?replicaSet=rs0&retryWrites=true&w=majority&authSource=${MONGO_DB_NAME}"
     update_env_file "server/.env.local" "MongoDB__ConnectionString" "$MONGO_CONNECTION_STRING"
-
-    echo "📝 Updating OpenAI API key in server configuration..."
-    update_env_file "server/.env.local" "Llm__ApiKey" "$OPENAI_API_KEY"
 fi
 
 # Update MongoDB credentials
@@ -290,6 +259,5 @@ echo "   • This script only generates secrets for services missing .env.local 
 echo "   • Existing .env.local files are preserved and skipped"
 echo "   • All database passwords have been randomly generated for security"
 echo "   • MongoDB has separate admin and application users for security"
-echo "   • OpenAI API key is read from the root .env file (REQUIRED)"
 echo "   • These secrets are now stored in .env.local files (not in git)"
 echo ""

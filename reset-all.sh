@@ -35,8 +35,7 @@ while [[ $# -gt 0 ]]; do
             echo "⚠️  WARNING: This script will:"
             echo "     - Stop all XiansAi services"
             echo "     - Remove all volumes (DELETE ALL DATA)"
-            echo "     - Remove XiansAi Docker images"
-            echo "     - Clean up Docker system"
+            echo "     - Clean up Docker system (dangling images/networks)"
             echo ""
             echo "This script resets all XiansAi services regardless of version or environment."
             echo ""
@@ -65,8 +64,7 @@ if [ "$FORCE" = false ]; then
     echo "    This action will:"
     echo "    • Stop all running services"
     echo "    • DELETE ALL DATA (volumes will be removed)"
-    echo "    • Remove XiansAi Docker images"
-    echo "    • Clean up Docker system"
+    echo "    • Clean up Docker system (dangling images/networks)"
     echo ""
     read -p "Are you sure you want to continue? Type 'RESET' to confirm: " confirmation
     
@@ -94,20 +92,11 @@ docker compose -p $PROJECT_NAME -f temporal/docker-compose.yml down -v --remove-
 echo "   • Stopping PostgreSQL services..."
 docker compose -p $PROJECT_NAME -f postgresql/docker-compose.yml down -v --remove-orphans 2>/dev/null || echo "     (PostgreSQL services not running)"
 
-# Step 2: Remove XiansAi Docker images
-# echo "🗑️  Removing XiansAi Docker images..."
-# docker images --format "table {{.Repository}}:{{.Tag}}" | grep -E "(xiansai|99xio)" | while read image; do
-#     if [ "$image" != "REPOSITORY:TAG" ]; then
-#         echo "   Removing: $image"
-#         docker rmi "$image" 2>/dev/null || echo "   (Image not found or in use: $image)"
-#     fi
-# done
-
-# Step 3: Clean up Docker system
+# Step 2: Clean up Docker system
 echo "🧹 Cleaning up Docker system..."
 docker system prune -f
 
-# Step 4: Remove any remaining volumes
+# Step 3: Remove any remaining volumes
 echo "🗑️  Removing any remaining XiansAi volumes..."
 
 # Show all volumes for debugging
@@ -116,7 +105,7 @@ docker volume ls --format "table {{.Name}}\t{{.Driver}}\t{{.CreatedAt}}" | head 
 
 # Get all volumes and filter for XiansAi-related ones
 echo "   • Scanning for XiansAi-related volumes..."
-docker volume ls --format "{{.Name}}" | grep -E "(xians|xiansai|community-edition|temporal|keycloak|postgres)" | while read -r volume; do
+docker volume ls --format "{{.Name}}" | grep -E "(xians|xiansai|community-edition|temporal|postgres)" | while read -r volume; do
     if [ -n "$volume" ]; then
         echo "   • Removing volume: $volume"
         docker volume rm "$volume" 2>/dev/null || echo "     (Volume in use or not found: $volume)"
@@ -138,9 +127,6 @@ specific_volumes=(
     "xians-mongodb-configdb"
     "xians-community-edition-data" 
     "xians-mongodb-data"
-    "xians-mongodb-configdb-v210beta"
-    "xians-community-edition-data-v210beta"
-    "xians-mongodb-data-v210beta"
 )
 
 for volume in "${specific_volumes[@]}"; do
@@ -150,7 +136,7 @@ for volume in "${specific_volumes[@]}"; do
     fi
 done
 
-# Step 5: Remove anonymous volumes (created by containers but not used)
+# Step 4: Remove anonymous volumes (created by containers but not used)
 echo "🗑️  Removing unused anonymous volumes..."
 unused_volumes=$(docker volume ls -q --filter "dangling=true")
 if [ -n "$unused_volumes" ]; then
@@ -164,7 +150,7 @@ else
     echo "   • No unused anonymous volumes found"
 fi
 
-# Step 6: Clean up environment files
+# Step 5: Clean up environment files
 echo "🔒 Cleaning up environment files..."
 if [ -f "scripts/delete-secrets.sh" ]; then
     ./scripts/delete-secrets.sh

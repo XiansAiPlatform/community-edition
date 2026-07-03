@@ -8,7 +8,8 @@
 # - sdk-web-typescript (npm)
 # - agent-studio (Docker Hub)
 # - XiansAi.Docs (GitHub Pages)
-# - community-edition (GitHub Release)
+#
+# After these publish, run ./scripts/release.sh to create the community edition release.
 
 set -e
 
@@ -74,7 +75,6 @@ OPTIONS:
     -h, --help          Show this help message
     -d, --dry-run       Perform a dry run without making changes
     -f, --force         Skip confirmation prompts
-    -w, --wait          Wait for all workflows to complete
     --skip-validation   Skip repository validation checks
 
 VERSION:
@@ -82,7 +82,6 @@ VERSION:
 
 EXAMPLES:
     $0 v2.1.0                    # Publish all artifacts for v2.1.0
-    $0 v2.1.0-beta.1 --wait      # Publish and wait for completion
     $0 v2.1.0 --dry-run          # Test the publishing process
 
 REPOSITORIES:
@@ -95,8 +94,8 @@ REPOSITORIES:
 
 WORKFLOW:
     1. Run this script to publish all artifacts
-    2. Wait for GitHub Actions to complete
-    3. Run ./release.sh to create community edition release
+    2. Run ./scripts/workflow-monitor.sh to wait for GitHub Actions to complete
+    3. Run ./scripts/release.sh to create community edition release
 
 EOF
 }
@@ -243,53 +242,6 @@ get_workflow_url() {
     esac
 }
 
-# Wait for GitHub Actions to complete
-wait_for_workflows() {
-    local version=$1
-    
-    if [[ "$WAIT_FOR_WORKFLOWS" != "true" ]]; then
-        return 0
-    fi
-    
-    log_step "Waiting for GitHub Actions workflows to complete..."
-    log_info "This may take 5-15 minutes depending on build complexity"
-    
-    # Check if gh CLI is available
-    if ! command -v gh &> /dev/null; then
-        log_warning "GitHub CLI not found. Cannot monitor workflows automatically."
-        log_info "Please monitor workflows manually in GitHub and run release.sh when ready."
-        return 0
-    fi
-    
-    local all_complete=false
-    local check_count=0
-    local max_checks=60  # 30 minutes max wait (30 seconds * 60)
-    
-    while [[ "$all_complete" != "true" && $check_count -lt $max_checks ]]; do
-        all_complete=true
-        
-        for repo_config in "${REPOS_CONFIG[@]}"; do
-            IFS='|' read -r repo_path repo_name artifact_type registry_url <<< "$repo_config"
-            
-            # This would require gh CLI and proper repo access
-            # For now, we'll provide manual monitoring instructions
-            log_info "Check $repo_name workflow: $(get_workflow_url "$repo_name" "$version")"
-        done
-        
-        if [[ "$all_complete" != "true" ]]; then
-            log_info "Waiting 30 seconds before next check..."
-            sleep 30
-            ((check_count++))
-        fi
-    done
-    
-    if [[ $check_count -ge $max_checks ]]; then
-        log_warning "Timeout waiting for workflows. Please check manually."
-    else
-        log_success "All workflows completed!"
-    fi
-}
-
 # Display publishing summary
 show_publishing_summary() {
     local version=$1
@@ -330,9 +282,9 @@ show_publishing_summary() {
     echo "=============================================="
     echo "🎯 Next Steps:"
     echo "=============================================="
-    echo "1. Monitor GitHub Actions workflows (links above)"
+    echo "1. Monitor workflows: ./scripts/workflow-monitor.sh $version"
     echo "2. Verify all artifacts are published successfully"
-    echo "3. Run: ./release.sh $version"
+    echo "3. Run: ./scripts/release.sh $version"
     echo "4. Update community documentation if needed"
     echo
 }
@@ -396,10 +348,6 @@ main() {
                 FORCE="true"
                 shift
                 ;;
-            -w|--wait)
-                WAIT_FOR_WORKFLOWS="true"
-                shift
-                ;;
             --skip-validation)
                 SKIP_VALIDATION="true"
                 shift
@@ -433,7 +381,6 @@ main() {
     echo "Version: $version"
     echo "Dry run: ${DRY_RUN:-false}"
     echo "Force: ${FORCE:-false}"
-    echo "Wait for workflows: ${WAIT_FOR_WORKFLOWS:-false}"
     echo "Skip validation: ${SKIP_VALIDATION:-false}"
     echo "================================================"
     echo
@@ -464,9 +411,6 @@ main() {
     
     log_success "All repositories tagged successfully!"
     
-    # Wait for workflows if requested
-    wait_for_workflows "$version"
-    
     # Show verification info
     verify_artifacts "$version"
     
@@ -474,7 +418,7 @@ main() {
     show_publishing_summary "$version"
     
     log_success "Publishing process completed!"
-    log_info "Monitor the GitHub Actions workflows and run './release.sh $version' when ready."
+    log_info "Monitor workflows with './scripts/workflow-monitor.sh $version', then run './scripts/release.sh $version' when ready."
 }
 
 # Run main function
