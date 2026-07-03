@@ -101,19 +101,12 @@ We follow [Semantic Versioning](https://semver.org/):
 - **Add relevant logs and screenshots**
 - **Use appropriate labels**
 
-### Issue Templates
-
-- **Bug Report**: For reporting bugs and unexpected behavior
-- **Feature Request**: For suggesting new features or improvements
-- **Documentation**: For documentation improvements
-- **Question**: For support and general questions
-
 ## 🔧 Pull Request Guidelines
 
 ### Before Submitting
 
 - [ ] Code follows project conventions
-- [ ] Tests pass locally
+- [ ] The platform starts cleanly (`./start-all.sh`)
 - [ ] Documentation is updated
 - [ ] Commit messages follow convention
 - [ ] No merge conflicts with main branch
@@ -122,7 +115,6 @@ We follow [Semantic Versioning](https://semver.org/):
 
 - **Descriptive title and description**
 - **Link to related issues**
-- **Test coverage for new features**
 - **Documentation updates**
 - **Screenshots for UI changes**
 
@@ -150,28 +142,22 @@ chore: update dependencies
 
 ## 🧪 Testing
 
-### Local Testing
+This is a Docker Compose deployment repository, so testing is done by running the
+platform locally and verifying services come up healthy:
 
 ```bash
-# Start the platform
+# Start the platform (default: latest images)
 ./start-all.sh
 
-# Run specific tests (if available)
-# Add your testing commands here
+# Start with a specific image version
+./start-all.sh -v v3.30.0
 
-# Test different configurations
-./start-all.sh -v v2.1.0 -e staging
+# Verify services, then reset when done
+docker compose ps
+./reset-all.sh -f
 ```
 
-### Testing Releases
-
-```bash
-# Test release process
-./release.sh v2.1.0 --dry-run
-
-# Test with specific version
-./start-all.sh -v v2.1.0
-```
+To dry-run a release, see the [Release Guide](docs/RELEASE_GUIDE.md).
 
 ## 📝 Documentation
 
