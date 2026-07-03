@@ -8,7 +8,6 @@ set -e
 # Configuration
 REPOS=(
     "XiansAiPlatform/XiansAi.Server"
-    "XiansAiPlatform/XiansAi.UI"
     "XiansAiPlatform/XiansAi.Lib"
     "XiansAiPlatform/XiansAi.Otel.Lib"
     "XiansAiPlatform/sdk-web-typescript"
@@ -17,7 +16,6 @@ REPOS=(
 )
 
 WORKFLOWS=(
-    "dockerhub-deploy.yml"
     "dockerhub-deploy.yml"
     "nuget-publish.yml"
     "nuget-publish.yml"

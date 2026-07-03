@@ -174,7 +174,6 @@ The XiansAi Platform consists of multiple repositories, each with its own artifa
 | Repository | Artifact Type | Registry | Image/Package Name | Description |
 |------------|---------------|----------|-------------------|-------------|
 | **XiansAi.Server** | Docker Image | Docker Hub | `99xio/xiansai-server` | Core API server |
-| **XiansAi.UI** | Docker Image | Docker Hub | `99xio/xiansai-ui` | Admin/Developer portal UI |
 | **XiansAi.Lib** | NuGet Package | NuGet.org | `XiansAi.Lib` | .NET SDK library |
 | **sdk-web-typescript** | npm Package | npmjs.com | `@99xio/xians-sdk-typescript` | TypeScript SDK |
 | **agent-studio** | Docker Image | Docker Hub | `99xio/agent-studio` | End-user interface for agent interaction |
@@ -187,21 +186,18 @@ The XiansAi Platform consists of multiple repositories, each with its own artifa
 graph TD
     A[Create Release Notes] --> B[Run publish.sh]
     B --> C[Tag XiansAi.Server]
-    B --> D[Tag XiansAi.UI]
     B --> E[Tag XiansAi.Lib]
     B --> F[Tag sdk-web-typescript]
     B --> G[Tag agent-studio]
     B --> H[Tag XiansAi.Docs]
     
     C --> I[Docker Hub: xiansai-server]
-    D --> J[Docker Hub: xiansai-ui]
     E --> K[NuGet: XiansAi.Lib]
     F --> L[npm: @99xio/xians-sdk-typescript]
     G --> M[Docker Hub: agent-studio]
     H --> N[GitHub Pages: XiansAi.Docs]
     
     I --> O[Monitor Workflows]
-    J --> O
     K --> O
     L --> O
     M --> O
@@ -348,7 +344,6 @@ All Docker images support:
 ### Available Docker Images
 
 - **99xio/xiansai-server**: Core API server and backend services
-- **99xio/xiansai-ui**: Administrative and developer portal interface
 - **99xio/agent-studio**: End-user interface for agent interaction and management
 
 ### Image Validation
@@ -400,7 +395,7 @@ The publish script validates Docker images by:
 
 Each repository has automated workflows that trigger on version tags:
 
-#### XiansAi.Server & XiansAi.UI
+#### XiansAi.Server
 
 - **Workflow**: `dockerhub-deploy.yml`
 - **Triggers**: Version tags (`v*`)
@@ -504,7 +499,7 @@ The `workflow-monitor.sh` script provides:
 
 ```bash
 # Check repository locations
-ls -la ../XiansAi.Server ../XiansAi.UI ../XiansAi.Lib ../sdk-web-typescript ../agent-studio ../XiansAi.Docs
+ls -la ../XiansAi.Server ../XiansAi.Lib ../sdk-web-typescript ../agent-studio ../XiansAi.Docs
 
 # Verify git status across repos
 ./scripts/publish.sh v2.1.0 --dry-run

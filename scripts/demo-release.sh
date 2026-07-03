@@ -72,7 +72,7 @@ main() {
     log_step "Step 2: Publishing artifacts across all repositories"
     echo "Command: ./scripts/publish.sh $version --dry-run"
     log_info "This would:"
-    echo "  📋 Validate all repositories (XiansAi.Server, XiansAi.UI, XiansAi.Lib, sdk-web-typescript)"
+    echo "  📋 Validate all repositories (XiansAi.Server, XiansAi.Lib, sdk-web-typescript)"
     echo "  🏷️  Create version tags in each repository"
     echo "  🚀 Push tags to trigger GitHub Actions workflows"
     echo "  📦 Publish: Docker images, NuGet packages, npm packages"
@@ -114,7 +114,6 @@ main() {
     local clean_version=${version#v}
     echo "🐳 Docker Images:"
     echo "   docker pull 99xio/xiansai-server:$version"
-    echo "   docker pull 99xio/xiansai-ui:$version"
     echo
     echo "📦 NuGet Package:"
     echo "   dotnet add package XiansAi.Lib --version $clean_version"

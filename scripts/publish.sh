@@ -3,7 +3,6 @@
 # XiansAi Platform Multi-Repository Publishing Script
 # This script coordinates publishing across all XiansAi repositories:
 # - XiansAi.Server (Docker Hub)
-# - XiansAi.UI (Docker Hub) 
 # - XiansAi.Lib (NuGet)
 # - XiansAi.Otel.Lib (NuGet)
 # - sdk-web-typescript (npm)
@@ -17,7 +16,6 @@ set -e
 REPOS_CONFIG=(
     # Format: "repo_path|repo_name|artifact_type|registry_url"
     "../XiansAi.Server|XiansAi.Server|docker|hub.docker.com/r/99xio/xiansai-server"
-    "../XiansAi.UI|XiansAi.UI|docker|hub.docker.com/r/99xio/xiansai-ui"
     "../XiansAi.Lib|XiansAi.Lib|nuget|nuget.org/packages/XiansAi.Lib"
     "../XiansAi.Otel.Lib|XiansAi.Otel.Lib|nuget|nuget.org/packages/XiansAi.Otel.Lib"
     "../sdk-web-typescript|sdk-web-typescript|npm|npmjs.com/package/@99xio/xians-sdk-typescript"
@@ -89,7 +87,6 @@ EXAMPLES:
 
 REPOSITORIES:
     XiansAi.Server      → Docker Hub (99xio/xiansai-server)
-    XiansAi.UI          → Docker Hub (99xio/xiansai-ui)
     XiansAi.Lib         → NuGet (XiansAi.Lib)
     XiansAi.Otel.Lib    → NuGet (XiansAi.Otel.Lib)
     sdk-web-typescript  → npm (@99xio/xians-sdk-typescript)
@@ -225,9 +222,6 @@ get_workflow_url() {
         "XiansAi.Server")
             echo "https://github.com/XiansAiPlatform/XiansAi.Server/actions/workflows/dockerhub-deploy.yml"
             ;;
-        "XiansAi.UI")
-            echo "https://github.com/XiansAiPlatform/XiansAi.UI/actions/workflows/dockerhub-deploy.yml"
-            ;;
         "XiansAi.Lib")
             echo "https://github.com/XiansAiPlatform/XiansAi.Lib/actions/workflows/nuget-publish.yml"
             ;;
@@ -358,7 +352,6 @@ verify_artifacts() {
     # Docker Hub images (can check via API)
     log_info "Docker images will be available at:"
     echo "  - docker pull 99xio/xiansai-server:$version"
-    echo "  - docker pull 99xio/xiansai-ui:$version"
     echo "  - docker pull 99xio/agent-studio:$version"
     
     # NuGet packages (can check via API)
@@ -375,7 +368,6 @@ verify_artifacts() {
     echo
     echo "# Check Docker images"
     echo "docker manifest inspect 99xio/xiansai-server:$version"
-    echo "docker manifest inspect 99xio/xiansai-ui:$version"
     echo "docker manifest inspect 99xio/agent-studio:$version"
     echo
     echo "# Check NuGet package"
