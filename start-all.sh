@@ -230,9 +230,31 @@ if [ "$SERVER_READY" != true ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Resolve admin credentials (used for bootstrap AND Agent Studio local login)
+# Check existing Agent Studio configuration (API key and local login)
 # ---------------------------------------------------------------------------
-if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASSWORD" ]; then
+EXISTING_APIKEY=""
+EXISTING_LOCAL_AUTH_USERS=""
+if [ -f "$STUDIO_ENV_FILE" ]; then
+    EXISTING_APIKEY=$(grep "^XIANS_APIKEY=" "$STUDIO_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+    EXISTING_LOCAL_AUTH_USERS=$(grep "^LOCAL_AUTH_USERS=" "$STUDIO_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+fi
+
+# ---------------------------------------------------------------------------
+# Resolve admin credentials (used for bootstrap AND Agent Studio local login)
+#
+# If local login is already configured in the studio env file (and the user
+# hasn't explicitly provided new credentials via .env), reuse the existing
+# setup instead of re-prompting on every run.
+# ---------------------------------------------------------------------------
+LOCAL_LOGIN_CONFIGURED=false
+if [ -n "$EXISTING_LOCAL_AUTH_USERS" ] && [ -z "$ADMIN_EMAIL" ] && [ -z "$ADMIN_PASSWORD" ]; then
+    LOCAL_LOGIN_CONFIGURED=true
+    # First configured user's email (entries are email:password[,email:password...])
+    ADMIN_EMAIL="${EXISTING_LOCAL_AUTH_USERS%%:*}"
+    echo "👤 Agent Studio local login already configured for ${ADMIN_EMAIL} — skipping admin account setup."
+fi
+
+if [ "$LOCAL_LOGIN_CONFIGURED" != true ] && { [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASSWORD" ]; }; then
     echo ""
     echo "═══════════════════════════════════════════════════════════════════"
     echo "👤  ADMIN ACCOUNT SETUP  (required)"
@@ -248,7 +270,7 @@ if [ -z "$ADMIN_EMAIL" ]; then
     echo ""
 fi
 
-if [ -z "$ADMIN_PASSWORD" ]; then
+if [ "$LOCAL_LOGIN_CONFIGURED" != true ] && [ -z "$ADMIN_PASSWORD" ]; then
     echo "   🔑 Agent Studio login password for ${ADMIN_EMAIL:-the admin}"
     read -r -s -p "      (leave blank to auto-generate one)  ➜  " ADMIN_PASSWORD
     echo ""
@@ -262,11 +284,6 @@ fi
 # ---------------------------------------------------------------------------
 # Bootstrap the platform and inject the API key into Agent Studio
 # ---------------------------------------------------------------------------
-EXISTING_APIKEY=""
-if [ -f "$STUDIO_ENV_FILE" ]; then
-    EXISTING_APIKEY=$(grep "^XIANS_APIKEY=" "$STUDIO_ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-fi
-
 if [ -n "$EXISTING_APIKEY" ]; then
     echo "🔑 Agent Studio already has an API key configured — skipping bootstrap."
 else
@@ -340,7 +357,10 @@ fi
 # ---------------------------------------------------------------------------
 # Configure Agent Studio local login (email/password — no OAuth required)
 # ---------------------------------------------------------------------------
-if [ -n "$ADMIN_EMAIL" ]; then
+if [ "$LOCAL_LOGIN_CONFIGURED" = true ]; then
+    set_env_var "$STUDIO_ENV_FILE" "LOCAL_AUTH_ENABLED" "true"
+    echo "🔓 Agent Studio local login already configured for ${ADMIN_EMAIL} — keeping existing credentials."
+elif [ -n "$ADMIN_EMAIL" ]; then
     set_env_var "$STUDIO_ENV_FILE" "LOCAL_AUTH_ENABLED" "true"
     set_env_var "$STUDIO_ENV_FILE" "LOCAL_AUTH_USERS" "${ADMIN_EMAIL}:${ADMIN_PASSWORD}"
     echo "🔓 Agent Studio local login configured for ${ADMIN_EMAIL}."
@@ -387,6 +407,8 @@ echo "        • Email:    ${ADMIN_EMAIL:-<your admin email>}"
 if [ "${GENERATED_PASSWORD:-false}" = true ]; then
     echo "        • Password: ${ADMIN_PASSWORD}"
     echo "          ⚠️  This password was auto-generated — save it now, it won't be shown again."
+elif [ "$LOCAL_LOGIN_CONFIGURED" = true ]; then
+    echo "        • Password: (your existing password from ${STUDIO_ENV_FILE})"
 else
     echo "        • Password: (the password you entered during setup)"
 fi
