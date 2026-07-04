@@ -20,8 +20,10 @@ fi
 : "${VERSION:=latest}"
 : "${COMPOSE_PROJECT_NAME:=xians-community-edition}"
 : "${SERVER_EXTERNAL_PORT:=5001}"
+: "${STUDIO_EXTERNAL_PORT:=3001}"
 
 SERVER_URL="http://localhost:${SERVER_EXTERNAL_PORT}"
+STUDIO_URL="http://localhost:${STUDIO_EXTERNAL_PORT}"
 STUDIO_ENV_FILE="studio/.env.local"
 
 # Set (or replace) a KEY=VALUE line in an env file, appending if absent.
@@ -257,11 +259,31 @@ fi
 echo "🖥️  Starting Agent Studio..."
 docker compose -p "$COMPOSE_PROJECT_NAME" up -d agent-studio
 
+# ---------------------------------------------------------------------------
+# Wait for Agent Studio to be healthy (non-fatal — the server is already up)
+# ---------------------------------------------------------------------------
+echo "⏳ Waiting for Agent Studio to be healthy at ${STUDIO_URL}/api/health ..."
+STUDIO_READY=false
+for attempt in $(seq 1 60); do
+    if curl -sf "${STUDIO_URL}/api/health" >/dev/null 2>&1; then
+        STUDIO_READY=true
+        echo "✅ Agent Studio is healthy!"
+        break
+    fi
+    echo "  Attempt ${attempt}/60 - Agent Studio not ready yet..."
+    sleep 5
+done
+
+if [ "$STUDIO_READY" != true ]; then
+    echo "⚠️  Agent Studio did not become healthy in time."
+    echo "   Check logs with: docker compose logs -f agent-studio"
+fi
+
 echo ""
 echo "✅ All services started successfully!"
 echo ""
 echo "📊 Access Points:"
-echo "  • Agent Studio:           http://localhost:3000"
+echo "  • Agent Studio:           ${STUDIO_URL}"
 echo "  • XiansAi Server API:     ${SERVER_URL}/api-docs"
 echo "  • Temporal Web UI:        http://localhost:8080"
 echo "  • Temporal gRPC API:      localhost:7233"
@@ -275,7 +297,7 @@ if [ "$OBSERVABILITY_AZURE" = true ]; then
 fi
 echo ""
 echo "🔐 Agent Studio sign-in (local login):"
-echo "   • URL:      http://localhost:3000"
+echo "   • URL:      ${STUDIO_URL}"
 echo "   • Email:    ${ADMIN_EMAIL:-<your admin email>}"
 if [ "${GENERATED_PASSWORD:-false}" = true ]; then
     echo "   • Password: ${ADMIN_PASSWORD}   (auto-generated — save it now)"

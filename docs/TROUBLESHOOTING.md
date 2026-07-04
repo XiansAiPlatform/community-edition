@@ -75,7 +75,7 @@ Error starting userland proxy: listen tcp 0.0.0.0:5001: bind: address already in
 
 ```bash
 # Find what is using the port
-lsof -i :3000   # Agent Studio
+lsof -i :3001   # Agent Studio
 lsof -i :5001   # XiansAi Server
 lsof -i :8080   # Temporal UI
 lsof -i :27017  # MongoDB
@@ -170,8 +170,8 @@ docker inspect xians-server | grep -A 10 "Health"
 - **Using OAuth instead — no providers configured**: Set Google/Azure/Visma
   credentials in `studio/.env.local` and restart Studio (command above).
 - **Redirect/callback error (OAuth)**: Register the exact redirect URI with your
-  provider: `http://localhost:3000/api/auth/callback/<provider>`. Confirm
-  `NEXTAUTH_URL=http://localhost:3000` in `studio/.env.local`.
+  provider: `http://localhost:3001/api/auth/callback/<provider>`. Confirm
+  `NEXTAUTH_URL=http://localhost:3001` in `studio/.env.local`.
 - **First user isn't admin**: The signed-in identity's email must match
   `ADMIN_EMAIL` used at bootstrap.
 

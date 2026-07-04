@@ -124,7 +124,7 @@ services:
     container_name: xians-agent-studio
     restart: unless-stopped
     ports:
-      - "${STUDIO_EXTERNAL_PORT:-3000}:3000"
+      - "${STUDIO_EXTERNAL_PORT:-3001}:3000"
     env_file:
       - studio/.env.local
     networks:
@@ -133,7 +133,7 @@ services:
       xiansai-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

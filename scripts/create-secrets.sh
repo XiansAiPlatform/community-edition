@@ -131,7 +131,7 @@ fi
 echo "   Found root .env file, reading values..."
 
 # Agent Studio sign-in variables (URLs are local defaults)
-STUDIO_HOST="http://localhost:3000"
+STUDIO_HOST="http://localhost:3001"
 
 # OAuth provider credentials (optional - copied into studio/.env.local)
 GOOGLE_CLIENT_ID=$(read_root_env "GOOGLE_CLIENT_ID")

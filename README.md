@@ -42,7 +42,7 @@ It deploys a minimal stack: **XiansAi Server**, **MongoDB**, **Temporal** (with 
 
 | Application | URL | Credentials |
 |-------------|-----|-------------|
-| **Agent Studio** | [http://localhost:3000](http://localhost:3000) | Local login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` |
+| **Agent Studio** | [http://localhost:3001](http://localhost:3001) | Local login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` |
 | **Temporal Web UI** | [http://localhost:8080](http://localhost:8080) | No authentication (local only) |
 | **API Documentation** | [http://localhost:5001/api-docs](http://localhost:5001/api-docs) | No authentication required |
 

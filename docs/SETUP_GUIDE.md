@@ -227,7 +227,7 @@ LOCAL_AUTH_ENABLED=true
 LOCAL_AUTH_USERS=<ADMIN_EMAIL>:<ADMIN_PASSWORD>
 ```
 
-Sign in at http://localhost:3000 with `ADMIN_EMAIL` / `ADMIN_PASSWORD`. This
+Sign in at http://localhost:3001 with `ADMIN_EMAIL` / `ADMIN_PASSWORD`. This
 resolves to the bootstrapped `SysAdmin` because the emails match.
 
 > Local login is for local/evaluation use only. Never enable it on a publicly
@@ -246,7 +246,7 @@ If you prefer SSO, configure one provider instead of (or in addition to) local l
    ```
 
 2. Register the redirect URI with your provider:
-   `http://localhost:3000/api/auth/callback/<provider>`
+   `http://localhost:3001/api/auth/callback/<provider>`
    (e.g. `.../callback/google`, `.../callback/azure-ad`, `.../callback/visma-connect`).
 3. Sign in with an identity whose email equals `ADMIN_EMAIL`, otherwise your
    account will not resolve to the bootstrapped `SysAdmin`.
@@ -255,7 +255,7 @@ If you prefer SSO, configure one provider instead of (or in addition to) local l
 
 ### Primary Services
 
-- **Agent Studio**: http://localhost:3000
+- **Agent Studio**: http://localhost:3001
 - **XiansAi Server API**: http://localhost:5001/api-docs
 - **Temporal Web UI**: http://localhost:8080 (unauthenticated, local only)
 
@@ -274,7 +274,7 @@ If you prefer SSO, configure one provider instead of (or in addition to) local l
 ```bash
 docker compose ps
 
-curl -s http://localhost:3000/api/health > /dev/null && echo "✅ Agent Studio is running"
+curl -s http://localhost:3001/api/health > /dev/null && echo "✅ Agent Studio is running"
 curl -s http://localhost:8080 > /dev/null && echo "✅ Temporal UI is running"
 curl -s http://localhost:5001/health > /dev/null && echo "✅ XiansAi Server is running"
 ```
@@ -338,7 +338,7 @@ docker compose logs -f agent-studio
 ### Agent Studio
 
 - **Purpose**: Web console for the platform
-- **Port**: 3000
+- **Port**: 3001
 - **Dependencies**: A healthy XiansAi Server and a valid `XIANS_APIKEY`
 - **Sign-in**: Built-in local email/password login by default (`ADMIN_EMAIL` /
   `ADMIN_PASSWORD`); OAuth providers optional (see above)
@@ -347,7 +347,7 @@ docker compose logs -f agent-studio
 
 After successful setup:
 
-1. Sign in to Agent Studio: http://localhost:3000
+1. Sign in to Agent Studio: http://localhost:3001
 2. Explore the API documentation: http://localhost:5001/api-docs
 3. Monitor workflows in Temporal: http://localhost:8080
 4. Read the contributing guide: [CONTRIBUTING.md](../CONTRIBUTING.md)
