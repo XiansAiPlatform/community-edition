@@ -100,8 +100,8 @@ done
 
 # Set final configuration based on arguments
 export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
-export SERVER_IMAGE="99xio/xiansai-server:$VERSION"
-export STUDIO_IMAGE="99xio/agent-studio:$VERSION"
+export SERVER_IMAGE="${SERVER_IMAGE:-99xio/xiansai-server:$VERSION}"
+export STUDIO_IMAGE="${STUDIO_IMAGE:-99xio/agent-studio:$VERSION}"
 
 echo "📋 Configuration:"
 echo "   Project: $COMPOSE_PROJECT_NAME"
@@ -109,10 +109,57 @@ echo "   Server Image: $SERVER_IMAGE"
 echo "   Studio Image: $STUDIO_IMAGE"
 echo ""
 
+# ---------------------------------------------------------------------------
+# Health/readiness helpers — abort startup if a critical service fails to start.
+# ---------------------------------------------------------------------------
+container_status() {
+    docker inspect -f '{{.State.Status}}' "$1" 2>/dev/null || echo "missing"
+}
+
+# Wait for a container's healthcheck to report "healthy"; abort on exit/timeout.
+wait_for_healthy() {
+    local name="$1" label="$2" retries="${3:-30}" delay="${4:-5}"
+    echo "⏳ Waiting for ${label} to be healthy..."
+    for _ in $(seq 1 "$retries"); do
+        local status health
+        status=$(container_status "$name")
+        if [ "$status" = "exited" ] || [ "$status" = "dead" ] || [ "$status" = "missing" ]; then
+            echo "❌ ${label} container '${name}' is ${status}. Startup aborted."
+            echo "   Check logs with: docker logs ${name}"
+            exit 1
+        fi
+        health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$name" 2>/dev/null || echo "missing")
+        if [ "$health" = "healthy" ]; then
+            echo "✅ ${label} is healthy!"
+            return 0
+        fi
+        echo "  ${label} not ready yet (status=${status}, health=${health})..."
+        sleep "$delay"
+    done
+    echo "❌ ${label} did not become healthy in time. Startup aborted."
+    echo "   Check logs with: docker logs ${name}"
+    exit 1
+}
+
+# Ensure a container is running (for services without a healthcheck, e.g. Temporal).
+require_running() {
+    local name="$1" label="$2"
+    local status
+    status=$(container_status "$name")
+    if [ "$status" != "running" ]; then
+        echo "❌ ${label} container '${name}' is not running (status=${status}). Startup aborted."
+        echo "   Check logs with: docker logs ${name}"
+        exit 1
+    fi
+}
+
 # Start MongoDB and the XiansAi Server first (NOT Agent Studio yet — it needs the
 # bootstrapped API key which is only available once the server is healthy).
 echo "🔧 Starting MongoDB and XiansAi Server..."
 docker compose -p "$COMPOSE_PROJECT_NAME" up -d mongodb xiansai-server
+
+# Abort immediately if MongoDB is not healthy — nothing else can work without it.
+wait_for_healthy xians-mongodb "MongoDB" 30 5
 
 # Wait a moment for the network to be created
 sleep 2
@@ -121,9 +168,8 @@ sleep 2
 echo "🗄️  Starting PostgreSQL service..."
 docker compose -p "$COMPOSE_PROJECT_NAME" -f postgresql/docker-compose.yml --env-file postgresql/.env.local up -d
 
-# Wait for PostgreSQL to be ready
-echo "⏳ Waiting for PostgreSQL to be ready..."
-sleep 10
+# Abort if PostgreSQL does not become healthy — Temporal depends on it.
+wait_for_healthy postgresql "PostgreSQL" 30 5
 
 # Start Aspire Dashboard (optional — enabled via --observability flag)
 if [ "$OBSERVABILITY" = true ]; then
@@ -147,10 +193,20 @@ fi
 echo "⚡ Starting Temporal services..."
 docker compose -p "$COMPOSE_PROJECT_NAME" -f temporal/docker-compose.yml --env-file temporal/.env.local up -d
 
-# Setup Temporal search attributes (asynchronous process)
+# Give Temporal a moment to boot, then abort if it already exited (e.g. a
+# PostgreSQL auth failure causes the auto-setup container to exit immediately).
+sleep 5
+require_running temporal "Temporal"
+
+# Setup Temporal search attributes. This also waits for the Temporal server to be
+# ready, so a failure here means the workflow engine is not usable — abort rather
+# than continue with a broken Temporal.
 echo "🔧 Setting up Temporal search attributes..."
-echo "  Note: Search attributes setup may take time and run in background"
-./temporal/setup-search-attributes.sh || echo "⚠️  Search attribute setup reported issues; continuing..."
+if ! ./temporal/setup-search-attributes.sh; then
+    echo "❌ Temporal did not become ready or search attributes could not be registered."
+    echo "   Startup aborted. Check logs with: docker logs temporal"
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Wait for the XiansAi Server to be healthy
@@ -176,18 +232,31 @@ fi
 # ---------------------------------------------------------------------------
 # Resolve admin credentials (used for bootstrap AND Agent Studio local login)
 # ---------------------------------------------------------------------------
-if [ -z "$ADMIN_EMAIL" ]; then
+if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASSWORD" ]; then
     echo ""
-    read -r -p "📧 Enter the administrator email: " ADMIN_EMAIL
+    echo "═══════════════════════════════════════════════════════════════════"
+    echo "👤  ADMIN ACCOUNT SETUP  (required)"
+    echo "═══════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "   These credentials are used to bootstrap the platform AND to log in"
+    echo "   to Agent Studio. Enter them below when prompted."
+    echo ""
+fi
+
+if [ -z "$ADMIN_EMAIL" ]; then
+    read -r -p "   📧 Administrator email  ➜  " ADMIN_EMAIL
+    echo ""
 fi
 
 if [ -z "$ADMIN_PASSWORD" ]; then
-    read -r -s -p "🔑 Enter an Agent Studio login password for ${ADMIN_EMAIL:-the admin} (blank = generate): " ADMIN_PASSWORD
+    echo "   🔑 Agent Studio login password for ${ADMIN_EMAIL:-the admin}"
+    read -r -s -p "      (leave blank to auto-generate one)  ➜  " ADMIN_PASSWORD
     echo ""
     if [ -z "$ADMIN_PASSWORD" ]; then
         ADMIN_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c16)
         GENERATED_PASSWORD=true
     fi
+    echo ""
 fi
 
 # ---------------------------------------------------------------------------
@@ -228,10 +297,36 @@ else
             cat "$BOOTSTRAP_BODY"
         fi
     elif [ "$HTTP_CODE" = "409" ]; then
-        echo "⚠️  Platform already bootstrapped (409 Conflict) and no API key is stored."
-        echo "   The bootstrap endpoint only works on an empty platform."
-        echo "   Recover a key by signing in to Agent Studio and minting a new one,"
-        echo "   or reset the platform with ./reset-all.sh (deletes all data)."
+        rm -f "$BOOTSTRAP_BODY"
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════════"
+        echo "❌  CANNOT MINT API KEY — platform already bootstrapped (409)"
+        echo "═══════════════════════════════════════════════════════════════════"
+        echo ""
+        echo "   The platform's MongoDB data volume already exists (it was"
+        echo "   bootstrapped on a previous run), but ${STUDIO_ENV_FILE}"
+        echo "   has no XIANS_APIKEY. This happens when the studio env file is"
+        echo "   regenerated/lost while the Mongo volume persists."
+        echo ""
+        echo "   The one-time bootstrap endpoint only works on an EMPTY platform,"
+        echo "   and a new admin API key cannot be minted without an existing one,"
+        echo "   so this key is unrecoverable from the CLI. Starting Agent Studio"
+        echo "   now would leave it unable to reach the server."
+        echo ""
+        echo "   Fix with ONE of the following, then re-run ./start-all.sh:"
+        echo ""
+        echo "     • Restore the previous key into ${STUDIO_ENV_FILE}:"
+        echo "         XIANS_APIKEY=<your existing admin API key>"
+        echo ""
+        echo "     • Mint a new key from the Agent Studio UI (keeps your data),"
+        echo "       then paste it into ${STUDIO_ENV_FILE} as XIANS_APIKEY."
+        echo ""
+        echo "     • Reset the platform (DELETES ALL DATA) for a clean bootstrap:"
+        echo "         ./reset-all.sh"
+        echo ""
+        echo "   Startup aborted."
+        echo "═══════════════════════════════════════════════════════════════════"
+        exit 1
     else
         echo "⚠️  Bootstrap request failed (HTTP ${HTTP_CODE}). Response:"
         cat "$BOOTSTRAP_BODY"
@@ -280,34 +375,49 @@ if [ "$STUDIO_READY" != true ]; then
 fi
 
 echo ""
-echo "✅ All services started successfully!"
+echo "═══════════════════════════════════════════════════════════════════"
+echo "🎉  XiansAi Community Edition is up and running!"
+echo "═══════════════════════════════════════════════════════════════════"
 echo ""
-echo "📊 Access Points:"
-echo "  • Agent Studio:           ${STUDIO_URL}"
-echo "  • XiansAi Server API:     ${SERVER_URL}/api-docs"
-echo "  • Temporal Web UI:        http://localhost:8080"
-echo "  • Temporal gRPC API:      localhost:7233"
-echo "  • MongoDB:                localhost:27017"
-echo "  • Temporal PostgreSQL:    localhost:5432"
-if [ "$OBSERVABILITY" = true ]; then
-    echo "  • Aspire Dashboard:       http://localhost:18888  (traces, metrics, logs)"
-fi
-if [ "$OBSERVABILITY_AZURE" = true ]; then
-    echo "  • OTEL Collector gRPC:    localhost:4317          (for Azure export)"
-fi
+echo "👉 NEXT STEP — Log in to Agent Studio:"
 echo ""
-echo "🔐 Agent Studio sign-in (local login):"
-echo "   • URL:      ${STUDIO_URL}"
-echo "   • Email:    ${ADMIN_EMAIL:-<your admin email>}"
+echo "   1. Open:     ${STUDIO_URL}"
+echo "   2. Sign in with your configured credentials:"
+echo "        • Email:    ${ADMIN_EMAIL:-<your admin email>}"
 if [ "${GENERATED_PASSWORD:-false}" = true ]; then
-    echo "   • Password: ${ADMIN_PASSWORD}   (auto-generated — save it now)"
+    echo "        • Password: ${ADMIN_PASSWORD}"
+    echo "          ⚠️  This password was auto-generated — save it now, it won't be shown again."
 else
-    echo "   • Password: (the ADMIN_PASSWORD you provided)"
+    echo "        • Password: (the password you entered during setup)"
 fi
-echo "   Prefer SSO instead? Configure a provider in ${STUDIO_ENV_FILE} and restart:"
+echo ""
+echo "   Prefer SSO instead? Configure a provider in ${STUDIO_ENV_FILE}, then run:"
 echo "     docker compose up -d --force-recreate agent-studio"
 echo ""
+echo "-------------------------------------------------------------------"
+echo "🔗 Service URLs:"
+echo ""
+echo "   • Agent Studio:        ${STUDIO_URL}"
+echo "   • XiansAi Server:      ${SERVER_URL}"
+echo "   • Server API docs:     ${SERVER_URL}/api-docs"
+echo "   • Server health:       ${SERVER_URL}/health"
+echo "   • Temporal Web UI:     http://localhost:8080"
+if [ "$OBSERVABILITY" = true ]; then
+    echo "   • Aspire Dashboard:    http://localhost:18888  (traces, metrics, logs)"
+fi
+if [ "$OBSERVABILITY_AZURE" = true ]; then
+    echo "   • OTEL Collector:      localhost:4317          (gRPC, for Azure export)"
+fi
+echo ""
+echo "   Internal endpoints (for advanced use / debugging):"
+echo "     • Temporal gRPC API:   localhost:7233"
+echo "     • MongoDB:             localhost:27017"
+echo "     • Temporal PostgreSQL: localhost:5432"
+echo ""
+echo "-------------------------------------------------------------------"
 echo "💡 Useful commands:"
-echo "  • View logs:              docker compose logs -f [service-name]"
-echo "  • Stop all:               ./stop-all.sh"
+echo ""
+echo "   • View logs:   docker compose logs -f [service-name]"
+echo "   • Stop all:    ./stop-all.sh"
+echo "═══════════════════════════════════════════════════════════════════"
 echo ""

@@ -101,10 +101,51 @@ read_root_env() {
     grep "^${key}=" "$ROOT_ENV_FILE" 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'"
 }
 
-# Generate shared database credentials (used by Temporal)
-echo "🗄️  Generating database credentials..."
+# Read a KEY=value from an arbitrary env file (quotes stripped). Empty if absent.
+read_env_value() {
+    local file="$1" key="$2"
+    [ -f "$file" ] || return 0
+    grep "^${key}=" "$file" 2>/dev/null | head -n1 | cut -d'=' -f2- | tr -d '"' | tr -d "'"
+}
+
+# Check whether a named docker volume exists.
+docker_volume_exists() {
+    docker volume ls --format '{{.Name}}' 2>/dev/null | grep -q "^$1$"
+}
+
+# Shared PostgreSQL credentials (used by both postgresql and temporal).
+# PostgreSQL only applies the password when it initializes an EMPTY data volume.
+# If the postgresql-data volume already exists, regenerating the password would
+# desync .env.local from the stored credentials and break Temporal's DB auth — so
+# reuse the existing password instead of generating a new one.
+echo "🗄️  Preparing PostgreSQL credentials..."
 POSTGRES_USER="dbuser"
-POSTGRES_PASSWORD=$(generate_alphanumeric 32)
+if docker_volume_exists "postgresql-data"; then
+    EXISTING_PG_PASSWORD="$(read_env_value "postgresql/.env.local" "POSTGRES_PASSWORD")"
+    [ -z "$EXISTING_PG_PASSWORD" ] && EXISTING_PG_PASSWORD="$(read_env_value "temporal/.env.local" "POSTGRES_PASSWORD")"
+    EXISTING_PG_USER="$(read_env_value "postgresql/.env.local" "POSTGRES_USER")"
+    [ -z "$EXISTING_PG_USER" ] && EXISTING_PG_USER="$(read_env_value "temporal/.env.local" "POSTGRES_USER")"
+
+    if [ -n "$EXISTING_PG_PASSWORD" ]; then
+        echo "   ↺ Existing 'postgresql-data' volume detected — reusing its stored password (not regenerating)."
+        POSTGRES_PASSWORD="$EXISTING_PG_PASSWORD"
+        [ -n "$EXISTING_PG_USER" ] && POSTGRES_USER="$EXISTING_PG_USER"
+    else
+        echo "❌ The 'postgresql-data' volume exists but its password could not be recovered"
+        echo "   from postgresql/.env.local or temporal/.env.local (both are missing the value)."
+        echo ""
+        echo "   PostgreSQL keeps the password from when the volume was first created, so"
+        echo "   generating a new one now would break Temporal's database authentication."
+        echo ""
+        echo "   Fix one of the following, then re-run ./start-all.sh:"
+        echo "     • Restore the matching POSTGRES_PASSWORD into postgresql/.env.local, or"
+        echo "     • Remove the stale volume to start fresh (deletes Temporal history):"
+        echo "         docker volume rm postgresql-data"
+        exit 1
+    fi
+else
+    POSTGRES_PASSWORD=$(generate_alphanumeric 32)
+fi
 
 # Generate MongoDB credentials
 echo "🍃 Generating MongoDB credentials..."
@@ -114,21 +155,21 @@ MONGO_DB_NAME="xians"
 MONGO_ROOT_PASSWORD=$(generate_alphanumeric 32)
 MONGO_APP_PASSWORD=$(generate_alphanumeric 32)
 
-# Load values from root .env file (REQUIRED)
-echo "📖 Reading configuration from root .env file..."
+# Load optional values from the root .env file.
+# The root .env is only used to copy optional OAuth/SSO credentials into
+# studio/.env.local. It is NOT required — without it the platform runs with the
+# default local email/password login. All other secrets are generated below.
+echo "📖 Reading optional configuration from root .env file..."
 # Root .env file is in the parent directory of the script
 ROOT_ENV_FILE="$(dirname "$SCRIPT_DIR")/.env"
 
-# Check if root .env file exists
-if [ ! -f "$ROOT_ENV_FILE" ]; then
-    echo "❌ ERROR: Root .env file not found at $ROOT_ENV_FILE"
-    echo ""
-    echo "Please create the .env file in the project root directory."
-    echo "You can copy .env.example as a starting point."
-    exit 1
+if [ -f "$ROOT_ENV_FILE" ]; then
+    echo "   Found root .env file, reading values..."
+else
+    echo "ℹ️  No root .env file found — continuing with generated defaults."
+    echo "   Optional SSO/OAuth credentials will be skipped."
+    echo "   To configure them, copy .env.example to .env and re-run."
 fi
-
-echo "   Found root .env file, reading values..."
 
 # Agent Studio sign-in variables (URLs are local defaults)
 STUDIO_HOST="http://localhost:3001"

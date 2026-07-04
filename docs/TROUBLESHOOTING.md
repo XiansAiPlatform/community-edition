@@ -196,18 +196,9 @@ free -h
 
 **Symptoms:** Agent responses fail with authentication or provider errors.
 
-**Solution:** Configure the LLM provider credentials for the server. These can
-be managed in-app or set directly in `server/.env.local`:
-
-```bash
-grep Llm__ApiKey server/.env.local
-```
-
-After updating the value, restart the server:
-
-```bash
-docker compose restart xiansai-server
-```
+**Solution:** LLM provider credentials are managed in-app. Sign in to Agent
+Studio and configure the LLM provider and API key in the platform settings.
+No server environment variable is required for this.
 
 ### Issue 9: Image Pull Failures
 

@@ -33,14 +33,17 @@ basicConstraints = critical,CA:true
 keyUsage = critical,digitalSignature,keyCertSign,cRLSign
 EOF
 
-    # Generate root CA key (encrypted with password)
-    openssl genrsa -des3 -passout pass:"$password" -out "$temp_dir/rootCA.key" 4096
+    # Generate root CA key. The temp key is created, used, and deleted within this
+    # function, so it does not need on-disk encryption — only the exported PFX is
+    # password-protected (below). Encrypting it with -des3 produces a PKCS#8
+    # "ENCRYPTED PRIVATE KEY" that OpenSSL 3.x's `req -passin pass:` fails to read
+    # (it falls back to a TTY passphrase prompt and aborts). Keep it unencrypted.
+    openssl genrsa -out "$temp_dir/rootCA.key" 4096
     
     # Generate root CA certificate with proper CA extensions
     openssl req -x509 -new -nodes -key "$temp_dir/rootCA.key" -sha256 -days 18250 \
         -config "$temp_dir/rootCA.conf" \
         -extensions v3_ca \
-        -passin pass:"$password" \
         -out "$temp_dir/rootCA.crt" \
         -set_serial $(date -u +%s)
     
@@ -52,7 +55,6 @@ EOF
         -out "$temp_dir/rootCA.pfx" \
         -inkey "$temp_dir/rootCA.key" \
         -in "$temp_dir/rootCA.crt" \
-        -passin pass:"$password" \
         -passout pass:"$password" \
         -name "XiansAi Root CA"
     
