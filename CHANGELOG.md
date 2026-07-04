@@ -5,6 +5,63 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.31.0] - 2026-07-04
+
+> **Overview**: This release focuses on the **Community Edition** deployment experience, tightening the setup and startup flow so the platform runs smoothly with **Agent Studio** as the primary interface. It continues the move away from the now-deprecated Xians UI, with configuration, scripts, and documentation aligned around Agent Studio.
+
+### 🔧 Improvements
+
+- **Community Edition — smoother Agent Studio experience**: Deployment configuration, environment files, scripts, and documentation have been refined so the community edition works cleanly with Agent Studio instead of the deprecated Xians UI.
+- **Startup — health checks and fail-fast behavior**: `start-all.sh` now waits for PostgreSQL, Temporal, the XiansAi Server, and Agent Studio to become healthy, and aborts with clear guidance when a dependency fails instead of continuing in a broken state.
+- **Startup — guided admin account setup**: Administrator email and Agent Studio login password are now prompted for interactively (with an option to auto-generate the password), and the final output clearly points users to sign in to Agent Studio.
+- **Startup — clearer bootstrap recovery**: When the platform is already bootstrapped (HTTP 409) but no `XIANS_APIKEY` is present, startup now explains exactly how to recover (restore the key, mint a new one from Agent Studio, or reset the platform) and aborts rather than launching a Studio that cannot reach the server.
+- **Configuration — host port overrides**: Added `SERVER_EXTERNAL_PORT` and `STUDIO_EXTERNAL_PORT` to control host-side port mappings, plus optional `SERVER_IMAGE` / `STUDIO_IMAGE` overrides for running locally built images.
+
+### 🐛 Bug Fixes
+
+- **Certificate generation on OpenSSL 3.x**: The root CA temporary key is no longer encrypted with `-des3`, avoiding a PKCS#8 passphrase-prompt failure under OpenSSL 3.x. Only the exported PFX remains password-protected.
+- **Agent Studio health check**: The container health check now targets `127.0.0.1` to reliably resolve inside the container.
+- **Secrets — shared PostgreSQL credentials**: `create-secrets.sh` now reuses existing database credentials when the Postgres volume is already present, preventing credential mismatches on re-runs.
+
+### ⚠️ Breaking Changes
+
+- **Agent Studio moved to port 3001**: Agent Studio is now served on `http://localhost:3001` (previously `3000`). Update bookmarks, `NEXTAUTH_URL`, and any OAuth redirect URIs accordingly (e.g. `http://localhost:3001/api/auth/callback/<provider>`).
+- **LLM credentials managed in-app**: LLM provider API keys are configured in Agent Studio's platform settings rather than via `server/.env.local`. Remove reliance on the `Llm__ApiKey` environment variable.
+
+### 📋 Migration Guide
+
+#### From v3.30.0 to v3.31.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Update your environment configuration:
+   - Set `NEXTAUTH_URL=http://localhost:3001` in `studio/.env.local` (see `studio/.env.example`).
+   - Update any OAuth redirect URIs registered with your provider to use port `3001`.
+   - Optionally set `SERVER_EXTERNAL_PORT` / `STUDIO_EXTERNAL_PORT` in `.env.local` if you need different host ports.
+4. Start with the new image tag:
+  ```bash
+   ./start-all.sh -v v3.31.0
+  ```
+5. Sign in to Agent Studio at `http://localhost:3001` and configure your LLM provider and API key in the platform settings (no server environment variable required).
+6. For .NET agents/SDKs using **XiansAi.Lib**, update to package version `3.31.0` after publish completes.
+
+### 📚 Documentation
+
+- Updated `README.md`, `docs/SETUP_GUIDE.md`, and `docs/TROUBLESHOOTING.md` to reflect the new Agent Studio port (`3001`) and the in-app LLM provider configuration.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.30.0...v3.31.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.30.0...v3.31.0)  
+**Component changelogs**: [Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.30.0...v3.31.0) · [Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.30.0...v3.31.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.30.0...v3.31.0)  
+**Docker Images**: `v3.31.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
 ## [v3.30.0] - 2026-07-03
 
 ### 🚀 New Features
