@@ -5,6 +5,41 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.33.0] - 2026-07-06
+
+> **Overview**: This release adds **agent template management** to Agent Studio for system administrators, along with **role-based user filtering** in tenant user management.
+
+### 🚀 New Features
+
+- **Agent Studio — agent template management for system admins**: System administrators can now promote existing agents to reusable templates, and manage them from the new **Templates** section in the sidebar (under `/system-admin/agent-templates`).
+- **Agent Studio — user filtering by role**: The user management interface now includes a role filter, letting system administrators filter users by specific roles — including `SysAdmin` when viewing in All Tenants mode. The role filter resets when the tenant selection changes, so the available role options always match the selected tenant.
+
+### 📋 Migration Guide
+
+#### From v3.32.0 to v3.33.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Start with the new image tag:
+  ```bash
+   ./start-all.sh -v v3.33.0
+  ```
+
+No configuration changes are required for this release.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.32.0...v3.33.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.32.0...v3.33.0)  
+**Component changelogs**: [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.32.0...v3.33.0)  
+**Docker Images**: `v3.33.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
 ## [v3.32.0] - 2026-07-04
 
 > **Overview**: This release focuses on **security hardening of Agent Studio**, tightening tenant access control and route authorization across the application. It also improves the community edition startup flow so existing Agent Studio login credentials are reused instead of re-prompted on every run.
