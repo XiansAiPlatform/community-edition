@@ -5,6 +5,67 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.35.0] - 2026-07-27
+
+> **Overview**: This release adds **self-service agent webhook management**, **tenant metadata** (including encrypted secrets), and **enhanced agent activation APIs**. Agent Studio gains **Azure AD B2C custom-domain authentication**, dashboard and log UX improvements, plus security hardening.
+
+### 🚀 New Features
+
+- **Self-service agent webhooks**: Certificate-authenticated agents can create, list, and delete their own inbound (builtin) webhooks via new Agent API endpoints — no Agent Studio or admin API required. The .NET SDK exposes this as `agent.Webhooks` (`CreateAsync`, `ListAsync`, `DeleteAsync`).
+- **Tenant metadata**: Tenants can store an optional metadata list (key/value/type). Secret values are encrypted at rest (AES-256-GCM) and are only decryptable via SysAdmin Admin API endpoints; general tenant payloads never expose decrypted secrets.
+- **Enhanced agent activation APIs**: New activation lifecycle endpoints for listing, creating, activating, and deactivating agent activations, with an `ActivateAgentRequest` model for optional workflow configuration. The .NET SDK adds activation management helpers (`ActivationExistsAsync`, `GetActivationStatusAsync`, `TenantAgents`).
+- **HITL task action metadata (Lib)**: Task actions can carry optional metadata, and metadata can be updated on HITL tasks without completing them (`UpdateMetadata`).
+- **Agent Studio — Azure AD B2C**: Support for Azure AD B2C as an auth provider for branded / custom-domain sign-in experiences (new env vars and sign-in UI option).
+- **Log stream error count**: Log stream summaries now include an `ErrorCount` field (counts `Error` and `Critical` logs), so clients can spot streams with failures in their history.
+
+### 🔧 Improvements
+
+- **Case-insensitive tenant IDs**: Tenant creation and lookup treat tenant IDs as unique regardless of casing, rejecting duplicates that differ only by case.
+- **Clearer invalid workflow identifier errors**: Malformed workflow identifiers now return dedicated, user-friendly API error responses instead of opaque failures.
+- **Agent Studio — dashboard & admin UX**: Refactored dashboard layout and platform summary; improved user role management in admin dialogs; task management enhancements on the dashboard.
+- **Agent Studio — logs UX**: Better log stream error handling, improved message wrapping/display, and copy-to-clipboard for log messages.
+- **Lib — schedule logging**: “Schedule not found” is now logged at debug instead of warning to reduce noise.
+- **Architecture documentation**: Constraint catalogue for XiansAi Server and comprehensive architecture docs for Agent Studio.
+
+### ⚠️ Deprecations
+
+- **`SendHandoffAsync` (Lib)**: Marked `[Obsolete]` across MessageActivityExecutor, MessageService, UserMessageContext, and MessageActivities. Prefer the supported handoff / messaging APIs; these methods will be removed in a future version.
+
+### 🔒 Security Updates
+
+- **Agent Studio — health endpoint**: Removed version, environment, and uptime disclosure from `/api/health`.
+- **Agent Studio — PostCSS XSS**: Patched transitive PostCSS XSS vulnerability (GHSA-qx2v-qp2m-jg93 / CVE via Next.js dependency chain).
+- **Agent Studio — credential gitignore**: Added patterns for common credential and private-key files to reduce accidental secret commits.
+- **Tenant secret metadata**: Secret-typed tenant metadata is encrypted at rest and never returned decrypted on general tenant APIs.
+
+### 📋 Migration Guide
+
+#### From v3.34.0 to v3.35.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Start with the new image tag:
+  ```bash
+   ./start-all.sh -v v3.35.0
+  ```
+4. **Optional — Azure AD B2C in Agent Studio**: If you want branded / custom-domain sign-in, configure the Azure AD B2C environment variables described in the Agent Studio Microsoft SSO docs, then restart Studio.
+5. **SDK consumers**: If you use `SendHandoffAsync`, plan a migration off the deprecated APIs. To manage webhooks or activations from agent code, use the new `agent.Webhooks` and activation helpers in `XiansAi.Lib`.
+
+No mandatory configuration or database migration is required for a standard upgrade. Tenant metadata and webhook/activation APIs are additive and backward compatible.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.34.0...v3.35.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.34.0...v3.35.0)  
+**Component changelogs**: [XiansAi Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.34.0...v3.35.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.34.0...v3.35.0) · [XiansAi.Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.34.0...v3.35.0)  
+**Docker Images**: `v3.35.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
 ## [v3.34.0] - 2026-07-10
 
 > **Overview**: This release introduces **cross-agent Temporal workflow calling**, enabling agents to invoke workflows belonging to other agents. It also adds **pagination to the tenant endpoints** in the Admin API.
