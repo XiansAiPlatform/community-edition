@@ -5,6 +5,80 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.36.0] - 2026-08-14
+
+> **Overview**: This release strengthens **user identity and authority resolution** (including shared-email / linked-identity cases), adds **permanent user deletion** and richer **agent lifecycle controls** in Agent Studio (restart / redeploy), and improves **message roundtrip performance**. It also hardens auth dependencies and enforces **lowercase tenant IDs** on create.
+
+### 🚀 New Features
+
+- **Linked identity & authority resolution**: User identity is resolved more reliably across Admin, User, and Agent APIs when emails are shared or linked across providers. Role, tenant, and ownership lookups stay consistent; ownership transfer and ambiguous email matches require a concrete user ID.
+- **Permanent user deletion**: SysAdmins can hard-delete user accounts via Admin API (`DELETE /api/v1/admin/users/{userId}`), with guards against self-deletion and removing the last enabled SysAdmin. A user-deletion webhook event is emitted. Agent Studio exposes this on `/system-admin/users`.
+- **Add existing users by user ID**: Tenant admins can add an already-existing account to a tenant by user ID (not only by creating a new email-based invite), avoiding ambiguity when multiple accounts share an email.
+- **Agent Studio — agent restart & redeploy**: Dashboard actions to restart an agent (deactivate + reactivate with the same settings) and to redeploy, with progress dialogs and toast feedback.
+- **Agent activation validation for messaging**: Messaging workflows validate that the target agent activation is active before proceeding, reducing silent failures against deactivated agents.
+- **System-scoped agent name protection**: Prevents name conflicts for system-scoped agents so tenant agents cannot collide with reserved system agent names.
+
+### 🔧 Improvements
+
+- **Message roundtrip performance**: Incoming-origin caching, a compound MongoDB index for thread origin lookup, and tighter certificate-validation caching cut database work on hot message paths.
+- **Participant-scoped message routing**: Message stream events route by participant group key (normalized participant IDs); `TenantGroupId` was removed from stream events so clients only receive relevant messages.
+- **Lowercase tenant IDs**: New tenant IDs must be lowercase at creation (admin create, bootstrap, and seed). Agent Studio’s create-tenant dialog enforces the same rule. Case-insensitive lookup remains for existing IDs; Cosmos DB tenant creation no longer relies on MongoDB collation.
+- **OIDC settings — SysAdmin only**: OIDC configuration endpoints and Agent Studio OIDC UI are restricted to system administrators.
+- **Agent Studio — logs**: Simplified logs page with stronger filtering and stream grouping by agent / activation / workflow.
+- **Agent Studio — UX**: Sidebar expand-on-navigate when collapsed; consistent `PageLoader` across the dashboard; quicker agent settings links (feedback, secrets, schedules); backend-unavailable screen includes sign-out to switch accounts; user approval status locking for non–SysAdmin self-edits.
+- **Admin user management**: Richer user detail fields (provider authority, lockout metadata, timestamps) and improved Admin API key / auth validation.
+- **Logging privacy**: Stronger user ID redaction in server logs.
+
+### 🐛 Bug Fixes
+
+- **Participant thread leak**: Fixed a participant/thread leak that could leave orphaned conversation state (backported from the 3.34.x line).
+- **Cosmos DB tenant creation**: Replaced collation-based case-insensitive tenant lookup with an exact match plus anchored regex so tenant create works on Azure Cosmos DB for MongoDB.
+
+### ⚠️ Breaking Changes
+
+- **New tenant IDs must be lowercase**: Creating a tenant with mixed-case or uppercase IDs now returns `400` with the accepted form. Existing tenants are unaffected; update any automation that creates tenants.
+- **Ownership transfer / participant assignment by user ID**: When an email maps to more than one account, Admin APIs reject ambiguous email-based ownership transfer or participant lookup — pass the target **user ID**.
+- **OIDC configuration access**: Non–SysAdmin callers can no longer read or modify OIDC provider settings.
+- **Message stream event shape**: Clients that depended on `TenantGroupId` on message stream events should switch to the participant-scoped group key.
+
+### 🔒 Security Updates
+
+- **Agent Studio — NextAuth email homoglyph bypass**: Patched Auth.js/NextAuth email normalizer account-takeover issue (GHSA-7rqj-j65f-68wh).
+- **Agent Studio — Next.js auth bypass**: Upgraded Next.js to address App Router / Turbopack middleware authentication bypass (CVE-2026-64642).
+- **Agent Studio — nanoid DoS**: Pinned/upgraded transitive `nanoid` against infinite-loop in `customAlphabet` with negative size (CVE-2026-67213).
+- **Agent Studio — credential gitignore**: Added SSH / private-key patterns to `.gitignore`.
+- **Server — OIDC & Admin API**: SysAdmin-only OIDC config; tighter Admin API key and authentication validation.
+
+### 📋 Migration Guide
+
+#### From v3.35.0 to v3.36.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Start with the new image tag:
+  ```bash
+   ./start-all.sh -v v3.36.0
+  ```
+4. **Tenant creation scripts**: Ensure any automated tenant IDs are lowercase before create.
+5. **Admin integrations**: Prefer user IDs (not emails) for ownership transfer and for adding existing users to tenants when emails may collide.
+6. **Custom stream clients**: If you consume message SSE / hub events and used `TenantGroupId`, update to participant-scoped group keys.
+7. **OIDC admins**: Confirm OIDC provider management is performed by SysAdmin accounts only.
+
+No database migration is required for a standard upgrade. `XiansAi.Lib` has no changes in this release relative to v3.35.0.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.35.0...v3.36.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.35.0...v3.36.0)  
+**Component changelogs**: [XiansAi Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.35.0...v3.36.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.35.0...v3.36.0) · [XiansAi.Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.35.0...v3.36.0)  
+**Docker Images**: `v3.36.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
 ## [v3.35.0] - 2026-07-27
 
 > **Overview**: This release adds **self-service agent webhook management**, **tenant metadata** (including encrypted secrets), and **enhanced agent activation APIs**. Agent Studio gains **Azure AD B2C custom-domain authentication**, dashboard and log UX improvements, plus security hardening.
