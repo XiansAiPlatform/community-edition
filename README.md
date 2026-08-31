@@ -13,6 +13,7 @@ It deploys a minimal stack: **XiansAi Server**, **MongoDB**, **Temporal** (with 
 - Docker and Docker Compose installed on your system
 - 8GB of available RAM
 - Internet connection to download the Docker images
+- **On Windows:** [Git for Windows](https://git-scm.com/download/win) (supplies Git Bash, which the PowerShell wrappers use)
 
 ### Steps
 
@@ -36,6 +37,12 @@ It deploys a minimal stack: **XiansAi Server**, **MongoDB**, **Temporal** (with 
    ./start-all.sh
    ```
 
+   On Windows, use the PowerShell wrapper instead (from PowerShell or Windows Terminal):
+
+   ```powershell
+   .\start-all.ps1
+   ```
+
    On first run, once the server is healthy `start-all.sh` bootstraps the platform, prints your **API key**, and stores it in `studio/.env.local` (`XIANS_APIKEY`). Save it — it is shown only once. Allow 2-3 minutes for all services to initialize.
 
 ## 🌐 Access the Applications
@@ -48,12 +55,17 @@ It deploys a minimal stack: **XiansAi Server**, **MongoDB**, **Temporal** (with 
 
 ## 🛠️ Management Scripts
 
-| Script | Purpose |
-|--------|---------|
-| `./start-all.sh [options]` | Start the platform (`--help` for options such as `-v <version>`, `--observability`, `--observability-azure`) |
-| `./stop-all.sh` | Stop all services |
-| `./reset-all.sh [-f]` | Complete reset and cleanup (removes all data) |
-| `./pull-latest.sh [-v <version>]` | Pull the latest Docker images from Docker Hub |
+| macOS / Linux | Windows (PowerShell) | Purpose |
+|---------------|----------------------|---------|
+| `./start-all.sh [options]` | `.\start-all.ps1 [options]` | Start the platform (`-h` for options such as `-v <version>`, `--observability`, `--observability-azure`) |
+| `./stop-all.sh` | `.\stop-all.ps1` | Stop all services |
+| `./reset-all.sh [-f]` | `.\reset-all.ps1 [-f]` | Complete reset and cleanup (removes all data) |
+| `./pull-latest.sh [-v <version>]` | `.\pull-latest.ps1 [-v <version>]` | Pull the latest Docker images from Docker Hub |
+
+The `.ps1` scripts are thin wrappers that run the matching `.sh` script through
+Git Bash, so both platforms execute the same logic and accept the same flags.
+They work in Windows PowerShell 5.1 and PowerShell 7+. See the
+[Setup Guide](docs/SETUP_GUIDE.md#-windows-notes) for Windows specifics.
 
 View logs with `docker compose logs -f [service-name]` (e.g. `xiansai-server`, `agent-studio`).
 
