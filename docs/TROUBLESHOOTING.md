@@ -217,9 +217,65 @@ docker pull 99xio/agent-studio:latest
 ./pull-latest.sh
 ```
 
-### Issue 10: MongoDB Start Errors on Windows
+### Issue 10: Windows Problems
 
-**Solution:** Ensure `mongodb/mongo-startup.sh` uses LF (not CRLF) line endings.
+#### `start-all.ps1 : File cannot be loaded because running scripts is disabled`
+
+PowerShell's default execution policy blocks local scripts:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Or bypass it for one run: `powershell -ExecutionPolicy Bypass -File .\start-all.ps1`.
+If you downloaded a ZIP instead of cloning, also run
+`Get-ChildItem -Recurse -Filter *.ps1 | Unblock-File`.
+
+#### `[X] Git Bash was not found`
+
+The `.ps1` wrappers run the shared `.sh` logic through Git Bash. Install Git for
+Windows and re-run:
+
+```powershell
+winget install --id Git.Git -e
+```
+
+#### MongoDB container exits immediately
+
+Almost always CRLF line endings in `mongodb/mongo-startup.sh`, which is
+bind-mounted into a Linux container — a `\r` in the shebang makes it
+unrunnable. `.gitattributes` pins the repository to LF, so this means the file
+was rewritten by an editor. Restore it:
+
+```powershell
+git checkout -- mongodb/mongo-startup.sh
+```
+
+Confirm the container sees LF:
+
+```powershell
+docker run --rm -v "${PWD}/mongodb/mongo-startup.sh:/s.sh:ro" alpine head -1 /s.sh
+```
+
+#### Agent Studio login fails with credentials you know are correct
+
+Check `.env` for CRLF line endings. `start-all.sh` sources that file, so a
+trailing carriage return becomes part of the value — `ADMIN_PASSWORD=secret` is
+read as `secret\r` and never matches what you type. Re-save `.env` as LF (VS
+Code: click the line-ending indicator in the status bar).
+
+#### `docker exec` / `docker run` paths get mangled in Git Bash
+
+Git Bash rewrites arguments that look like Unix paths, so
+`docker exec temporal ls /etc/temporal` becomes
+`... ls C:/Program Files/Git/etc/temporal`. Prefix the command to disable it:
+
+```bash
+MSYS_NO_PATHCONV=1 docker exec temporal ls /etc/temporal
+```
+
+The repository's own scripts are already written to avoid this; it only affects
+ad-hoc commands you type yourself.
 
 ### Issue 11: Temporal Search Attributes Not Registered
 

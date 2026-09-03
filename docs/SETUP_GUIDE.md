@@ -11,6 +11,7 @@ This guide walks you through setting up the XiansAi Platform Community Edition o
 
 - [System Requirements](#system-requirements)
 - [Prerequisites Installation](#prerequisites-installation)
+- [Windows Notes](#-windows-notes)
 - [Project Setup](#project-setup)
 - [Configuration](#configuration)
 - [Starting the Platform](#starting-the-platform)
@@ -67,7 +68,16 @@ sudo systemctl enable docker
 
 1. Download Docker Desktop from https://www.docker.com/products/docker-desktop
 2. Install and restart your computer
-3. Start Docker Desktop
+3. Start Docker Desktop (the WSL 2 backend is recommended)
+
+Windows users also need **Git for Windows**, which provides Git Bash. The
+`.ps1` management scripts run the shared `.sh` logic through it:
+
+```powershell
+winget install --id Git.Git -e
+```
+
+See [Windows Notes](#-windows-notes) below for the details.
 
 ### 2. Git
 
@@ -119,12 +129,103 @@ ls -la
 MongoDB is referenced by the hostname `mongodb` inside the connection string.
 Add a host entry so tools on your machine can resolve it too:
 
+macOS / Linux:
+
 ```bash
 grep -q "mongodb" /etc/hosts || echo "127.0.0.1   mongodb" | sudo tee -a /etc/hosts
 ```
 
-On Windows, ensure `C:\Windows\System32\drivers\etc\hosts` contains
-`127.0.0.1   host.docker.internal` (edit as Administrator).
+Windows — run in an **Administrator** PowerShell. Do not use Git Bash for this:
+its `/etc/hosts` is a file inside the Git installation, not the Windows hosts
+file.
+
+```powershell
+$hosts = "$env:SystemRoot\System32\drivers\etc\hosts"
+if (-not (Select-String -Path $hosts -Pattern 'mongodb' -SimpleMatch -Quiet)) {
+    Add-Content -Path $hosts -Value "`n127.0.0.1   mongodb"
+}
+```
+
+## 🪟 Windows Notes
+
+The platform itself runs the same on Windows as everywhere else — Docker Compose,
+the images, and the volumes are unchanged. The only Windows-specific pieces are
+the management scripts.
+
+### PowerShell wrappers
+
+Each Bash management script has a `.ps1` counterpart in the repository root:
+
+| macOS / Linux | Windows |
+|---------------|---------|
+| `./start-all.sh` | `.\start-all.ps1` |
+| `./stop-all.sh` | `.\stop-all.ps1` |
+| `./reset-all.sh` | `.\reset-all.ps1` |
+| `./pull-latest.sh` | `.\pull-latest.ps1` |
+
+These are **thin wrappers**, not reimplementations: they locate Git Bash, check
+that Docker is running, and then run the matching `.sh` script. The startup,
+bootstrap, and secret-generation logic has exactly one implementation, shared by
+all platforms, so Windows cannot drift behind macOS and Linux.
+
+Because arguments are forwarded verbatim, every flag works the same:
+
+```powershell
+.\start-all.ps1                        # defaults (latest images)
+.\start-all.ps1 -v v3.35.1             # specific version
+.\start-all.ps1 --observability        # with the Aspire Dashboard
+.\start-all.ps1 -h                     # full option list
+.\reset-all.ps1 -f                     # reset without prompting
+```
+
+They are tested on Windows PowerShell 5.1 and PowerShell 7+.
+
+### Requirements
+
+- **Git for Windows** — supplies Git Bash. The wrappers look in the standard
+  install locations and then fall back to deriving the path from `git.exe` on
+  `PATH`, so winget, Scoop and Chocolatey installs are all found.
+- **Docker Desktop** — the WSL 2 backend is recommended.
+
+### If PowerShell refuses to run the scripts
+
+A default Windows install blocks local scripts. Either allow them for your user:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+...or run a single script without changing the policy:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-all.ps1
+```
+
+If you downloaded the repository as a ZIP rather than cloning it, Windows may
+also mark the files as blocked:
+
+```powershell
+Get-ChildItem -Recurse -Filter *.ps1 | Unblock-File
+```
+
+### Editing `.env` on Windows
+
+Save `.env` with **LF** line endings. Editors that write CRLF (Notepad, some
+default configurations) leave a trailing carriage return on every value, so
+`ADMIN_PASSWORD=secret` becomes `secret\r` — the platform starts, but the Agent
+Studio login silently never matches. VS Code shows and switches the line ending
+in the status bar; Notepad++ uses Edit → EOL Conversion.
+
+Tracked files are already normalised to LF by `.gitattributes`, which is what
+keeps `mongodb/mongo-startup.sh` (bind-mounted into a Linux container) working.
+`.env` is not tracked, so it is on you.
+
+### Using WSL instead
+
+Running the repository from inside WSL 2 also works — use the `.sh` scripts
+directly. Keep the clone on the Linux filesystem (`~/community-edition`, not
+`/mnt/c/...`); bind-mount performance across the Windows/Linux boundary is poor
+and file permissions do not translate cleanly.
 
 ## ⚙️ Configuration
 
@@ -171,6 +272,12 @@ and never overwritten.
 
 ```bash
 ./start-all.sh
+```
+
+On Windows, from PowerShell or Windows Terminal:
+
+```powershell
+.\start-all.ps1
 ```
 
 This will:

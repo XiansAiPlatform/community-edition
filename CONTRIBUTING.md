@@ -18,7 +18,8 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
 ### Prerequisites
 
 - Docker and Docker Compose
-- Git
+- Git (on Windows, [Git for Windows](https://git-scm.com/download/win) — the
+  PowerShell wrappers need Git Bash)
 - GitHub account
 - Basic understanding of the XiansAi platform
 
@@ -38,6 +39,7 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
    ```bash
    ./start-all.sh
    ```
+   On Windows, use the PowerShell wrapper: `.\start-all.ps1`
 
 ## 🔄 Contributing Process
 
@@ -106,7 +108,8 @@ We follow [Semantic Versioning](https://semver.org/):
 ### Before Submitting
 
 - [ ] Code follows project conventions
-- [ ] The platform starts cleanly (`./start-all.sh`)
+- [ ] The platform starts cleanly (`./start-all.sh`, or `.\start-all.ps1` on Windows)
+- [ ] Changes to the management scripts keep the `.sh` and `.ps1` entry points in sync
 - [ ] Documentation is updated
 - [ ] Commit messages follow convention
 - [ ] No merge conflicts with main branch
@@ -139,6 +142,25 @@ chore: update dependencies
 - `refactor`: Code refactoring
 - `test`: Test additions/updates
 - `chore`: Maintenance tasks
+
+## 🪟 Windows Support
+
+The management scripts have exactly one implementation. `start-all.sh`,
+`stop-all.sh`, `reset-all.sh` and `pull-latest.sh` hold all the logic; the
+matching `.ps1` files in the repository root are thin wrappers that locate Git
+Bash, check Docker, and forward every argument unchanged. Shared helpers live in
+`scripts/windows-common.ps1`.
+
+When changing a management script:
+
+- Put behaviour changes in the `.sh` file — the wrapper picks them up for free.
+- Only touch a `.ps1` file when adding a new entry point or changing pre-flight
+  checks. If you add a new user-facing `.sh` script, add a matching wrapper.
+- Keep Bash portable to Git Bash: avoid absolute Unix paths as arguments to
+  `docker` (Git Bash rewrites them — use `MSYS_NO_PATHCONV=1` if unavoidable).
+- `.gitattributes` pins the repository to LF. This is load-bearing:
+  `mongodb/mongo-startup.sh` is bind-mounted into a Linux container and CRLF
+  breaks its shebang. `.ps1` files are checked out CRLF by design.
 
 ## 🧪 Testing
 
