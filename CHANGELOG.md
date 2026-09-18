@@ -5,6 +5,79 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.37.0] - 2026-09-18
+
+> **Overview**: This release adds **file attachments in messaging**, **agent-level access control**, an **admin audit trail**, **force-delete with data cleanup**, and **per-tenant Temporal isolation**. Agent Studio gets a **chat UI revamp**, participant **My Tasks** for HITL, and schedule workflow-input visibility. The .NET Lib adds **opt-in worker deployment versioning**, **Unicode agent/workflow names**, and a **prompt-defined agent** sample with MCP tools.
+
+### 🚀 New Features
+
+- **File attachments in messaging**: Agents and users can exchange files in conversations. The .NET SDK adds `ReplyWithFileAsync` / `ReplyWithFilesAsync` plus upload and file-reference helpers, with participant-ownership checks on the server.
+- **Workflow selection for conversations**: Conversations can target a specific conversational workflow when an agent exposes more than one; Studio and Lib support the selection flow, with backward-compatible `workflowType` handling.
+- **Agent-level user permissions**: Owners and tenant admins can grant Read, Write, or Owner access to specific users, or restrict an agent so it is no longer open to every tenant user. `TenantAdmin` and `SysAdmin` remain unrestricted. Defaults stay open for backward compatibility.
+- **Admin audit trail**: Important Admin API actions are recorded (with descriptions, filtering, and pagination). Agent Studio adds an audit log UI. Studio → Admin calls can send `X-On-Behalf-Of` so actions are attributed to the signed-in UI user.
+- **Force-delete agent & data cleanup**: Deleting an agent can optionally remove associated activations and data (messages, webhooks, feedback, knowledge, logs, metrics, schedules). Tenant removal can force-delete tenant activations and related data.
+- **Per-tenant Temporal configuration**: SysAdmins can set and test per-tenant Temporal connection overrides (connectivity checks, namespace management), improving Temporal tenant isolation for multi-tenant deployments.
+- **Worker deployment version management**: Admin API support to list, describe, and promote Temporal worker deployment versions (including ramping). Lib adds opt-in `XiansOptions.WorkerVersioning` so new builds can roll out without breaking in-flight pinned executions.
+- **Schedule workflow inputs**: Authorized clients can read stored schedule workflow arguments; Agent Studio shows a read-only Workflow input section on schedule details.
+- **Prompt-defined agent (Lib)**: Reusable sample agent configured via prompts in Agent Studio, with MCP tools and dynamic scheduled prompts (`CreateSchedule`, `ListSchedules`, `UpdateScheduleTiming`, `DeleteSchedule`).
+- **Agent Studio — participant My Tasks**: Participants can list and act on HITL tasks they own; pending tasks surface in chat, header, and sidebar. Tenant-wide “Everyone” listings still require Agent Settings access.
+
+### 🔧 Improvements
+
+- **Shared Redis caching (multi-instance)**: When `Cache:Provider=redis` is configured, authorization and messaging caches coordinate across replicas (including cross-replica invalidation). In-memory remains the default when Redis is not set. A no-op cache option is also available.
+- **Unicode agent & workflow names**: Agent, activation, and workflow names accept Unicode letters (including Norwegian `æ` / `ø` / `å`) with NFC normalization across Server, Studio, and Lib. Markup and injection characters remain rejected.
+- **Agent Studio — chat UI revamp**: Cleaner conversation layout (full-width agent messages, hover toolbar for time / copy / rating, fewer chrome elements), plus overflow and scroll fixes.
+- **Agent Studio — temporal settings UX**: Clearer “Temporal Server” tenant settings for connectivity (namespace fields removed from simple tenant create where appropriate).
+- **Participant lookup with shared emails**: `GET /api/v1/admin/participants/{email}` combines records when several accounts share an address, instead of always returning `409`.
+- **OIDC display names**: Provisioning composes a display name from `given_name` / `family_name` (and camelCase variants) when no single `name` claim is present.
+- **Logs & observability**: Improved error/log reporting; optional OpenTelemetry export (Agentri / Application Insights path) with W3C trace propagation from agent → server. Self-hosted defaults stay unchanged (`OpenTelemetry__Enabled=false`).
+- **Lib worker reliability**: Sticky workflow cache is bounded; log upload queue drains on shutdown; graceful SIGTERM cancels the worker run token.
+- **Dark mode & connections UX**: Better muted-text contrast across themes; Teams integration success toast fixed; participant landing and tasks pages scroll correctly.
+- **Briefing Agent sample (Lib)**: Channel-aware markdown prompts and scheduled supervisor check-ins for Studio, Slack, and Teams.
+
+### 🐛 Bug Fixes
+
+- **Admin metrics on Azure DocumentDB**: Timeseries bucketing no longer mis-groups day/week buckets on DocumentDB’s `$dateTrunc` quirks.
+- **HITL ownership in Studio BFF**: Task approve/reject/draft require the session participant to own the task; blank Temporal assignees fall back to the spawning conversation only.
+- **Admin Everyone HITL list**: Approved and rejected tasks display correctly; pending-task header refreshes without a full page reload.
+
+### ⚠️ Breaking Changes
+
+- None required for a default upgrade. Behavior changes to note:
+  - **Restricting agent access** is opt-in; once public access is turned off, `TenantParticipant` / `TenantParticipantAdmin` / `TenantUser` need explicit Read/Write/Owner grants.
+  - **Force-delete** permanently removes associated agent/activation data when selected — use deliberately.
+  - **Worker versioning** is opt-in; non-ASCII agent names cannot be used as Temporal deployment names — set an ASCII `DeploymentName` when enabling versioning.
+
+### 📋 Migration Guide
+
+#### From v3.36.0 to v3.37.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Start with the new image tag:
+  ```bash
+   ./start-all.sh -v v3.37.0
+  ```
+4. **Optional — multi-instance Redis**: For horizontally scaled server replicas, set `Cache:Provider=redis` and `Cache:Redis:ConnectionString`, then restart.
+5. **Optional — per-tenant Temporal**: As SysAdmin, configure and test tenant Temporal Server overrides where isolation is required.
+6. **Optional — agent ACLs**: Review agents that should not be tenant-wide; restrict public access and assign Read/Write/Owner as needed.
+7. **SDK consumers**: Upgrade `XiansAi.Lib` to use file replies, Unicode names, worker versioning, or the prompt-defined agent sample.
+
+No mandatory database migration is required for a standard upgrade. Audit indexes are created by the server on startup.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.36.0...v3.37.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.36.0...v3.37.0)  
+**Component changelogs**: [XiansAi Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.36.0...v3.37.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.36.0...v3.37.0) · [XiansAi.Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.36.0...v3.37.0)  
+**Docker Images**: `v3.37.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
 ## [v3.36.0] - 2026-08-14
 
 > **Overview**: This release strengthens **user identity and authority resolution** (including shared-email / linked-identity cases), adds **permanent user deletion** and richer **agent lifecycle controls** in Agent Studio (restart / redeploy), and improves **message roundtrip performance**. It also hardens auth dependencies and enforces **lowercase tenant IDs** on create.
