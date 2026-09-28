@@ -5,6 +5,23 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.36.1] - 2026-09-26
+
+### 🔧 Improvements
+
+- **Temporal upgraded to Server 1.32.0 / UI 2.54.1** (from 1.28.0 / 2.36.0). The deprecated `temporalio/auto-setup` image (no longer published past 1.29) is replaced by `temporalio/server`, with `temporalio/admin-tools` jobs that create/migrate the database schema and register the `default` namespace. A long-running `temporal-admin-tools` container provides the `temporal` CLI.
+- **Search attribute scripts** now use the `temporal` CLI through `temporal-admin-tools` instead of `tctl`, which is no longer shipped.
+
+### 🐛 Bug Fixes
+
+- **Server could not reach Temporal on Linux**: `server/.env.example` pointed `Temporal__FlowServerUrl` at `host.docker.internal:7233`, which does not resolve on Linux Docker. It now uses `temporal:7233` on the shared network.
+
+### ⚠️ Upgrade Notes
+
+- On Linux, change `Temporal__FlowServerUrl` in `server/.env.local` to `temporal:7233`.
+- Existing installs keep the versions pinned in `temporal/.env.local`. To upgrade, set `TEMPORAL_VERSION=1.32.0` and `TEMPORAL_UI_VERSION=2.54.1` there and run `./start-all.sh`; schema migrations are applied automatically and existing workflows are preserved.
+- Replace `docker exec temporal tctl ...` in your own tooling with `docker exec temporal-admin-tools temporal ...`.
+
 ## [v3.36.0] - 2026-08-14
 
 > **Overview**: This release strengthens **user identity and authority resolution** (including shared-email / linked-identity cases), adds **permanent user deletion** and richer **agent lifecycle controls** in Agent Studio (restart / redeploy), and improves **message roundtrip performance**. It also hardens auth dependencies and enforces **lowercase tenant IDs** on create.

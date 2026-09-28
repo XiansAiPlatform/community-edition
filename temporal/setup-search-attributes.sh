@@ -7,6 +7,10 @@
 
 set -e
 
+# The Temporal server image ships no CLI; commands run in the admin-tools
+# container, which is preconfigured with TEMPORAL_ADDRESS.
+TEMPORAL_CLI="docker exec temporal-admin-tools temporal"
+
 echo "🔧 Setting up Temporal search attributes..."
 
 # Function to check if Temporal is ready
@@ -17,7 +21,7 @@ wait_for_temporal() {
 
     while [ $attempt -le $max_attempts ]; do
         # First check if the service is serving
-        if docker exec temporal tctl cluster health 2>/dev/null | grep -q "temporal.api.workflowservice.v1.WorkflowService: SERVING"; then
+        if $TEMPORAL_CLI operator cluster health >/dev/null 2>&1; then
             echo "✅ Temporal server is ready!"
 
             # Now check if the default namespace exists
@@ -26,7 +30,7 @@ wait_for_temporal() {
             local namespace_attempt=1
 
             while [ $namespace_attempt -le $namespace_attempts ]; do
-                if docker exec temporal tctl namespace describe default >/dev/null 2>&1; then
+                if $TEMPORAL_CLI operator namespace describe --namespace default >/dev/null 2>&1; then
                     echo "✅ Default namespace is available!"
                     return 0
                 fi
@@ -59,7 +63,7 @@ setup_search_attributes() {
 
     # Snapshot of currently registered attributes (best-effort)
     local existing_attrs
-    existing_attrs=$(docker exec temporal temporal operator search-attribute list 2>/dev/null || echo "")
+    existing_attrs=$($TEMPORAL_CLI operator search-attribute list --namespace default 2>/dev/null || echo "")
 
     for i in "${!names[@]}"; do
         local name="${names[$i]}"
@@ -71,7 +75,7 @@ setup_search_attributes() {
         fi
 
         echo "    - Adding $name as $type..."
-        docker exec temporal temporal operator search-attribute create \
+        $TEMPORAL_CLI operator search-attribute create \
             --namespace default --name "$name" --type "$type" 2>/dev/null && {
             echo "      ✅ $name registered successfully!"
         } || {
