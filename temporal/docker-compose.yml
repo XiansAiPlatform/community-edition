@@ -1,33 +1,88 @@
+x-postgres-env: &postgres-env
+  DB: postgres12
+  DB_PORT: 5432
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PWD: ${POSTGRES_PASSWORD}
+  POSTGRES_SEEDS: postgresql
+
 services:
+  # One-shot job: creates the Temporal databases and applies schema migrations
+  # (including upgrades when TEMPORAL_VERSION changes). The server waits for it.
+  temporal-schema-setup:
+    container_name: temporal-schema-setup
+    image: temporalio/admin-tools:${TEMPORAL_VERSION}
+    environment:
+      <<: *postgres-env
+      SQL_PASSWORD: ${POSTGRES_PASSWORD}
+    entrypoint: ["/bin/sh"]
+    command: /scripts/setup-postgres.sh
+    networks:
+      - xians-community-edition
+    volumes:
+      - ./scripts:/scripts:ro
   temporal:
     container_name: temporal
-    external_links:
-      - postgresql:postgresql
     env_file:
       - .env.local
+    depends_on:
+      temporal-schema-setup:
+        condition: service_completed_successfully
     environment:
-      - DB=postgres12
-      - DB_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PWD=${POSTGRES_PASSWORD}
-      - POSTGRES_SEEDS=postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      <<: *postgres-env
+      BIND_ON_IP: 0.0.0.0
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
     # This image runs ALL temporal services (frontend, matching, history, worker) in single process
-    image: temporalio/auto-setup:${TEMPORAL_VERSION}
+    image: temporalio/server:${TEMPORAL_VERSION}
     networks:
       - xians-community-edition
     ports:
       - 7233:7233
     volumes:
       - ./dynamicconfig:/etc/temporal/config/dynamicconfig
-  # Removed temporal-admin-tools - not needed with auto-setup image
-  # You can access admin tools by running: docker exec -it temporal tctl cluster health
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "7233"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 60
+  # One-shot job: registers the "default" namespace.
+  temporal-create-namespace:
+    container_name: temporal-create-namespace
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      # passthrough: skips gRPC's own DNS resolver, whose TXT lookup can stall
+      # for seconds on some home/office routers and time out the CLI.
+      TEMPORAL_ADDRESS: passthrough:///temporal:7233
+      DEFAULT_NAMESPACE: default
+    image: temporalio/admin-tools:${TEMPORAL_VERSION}
+    entrypoint: ["/bin/sh"]
+    command: /scripts/create-namespace.sh
+    networks:
+      - xians-community-edition
+    volumes:
+      - ./scripts:/scripts:ro
+  # Long-running container with the `temporal` CLI preconfigured for this cluster
+  # (the server image ships no CLI). Example:
+  #   docker exec temporal-admin-tools temporal operator cluster health
+  temporal-admin-tools:
+    container_name: temporal-admin-tools
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: passthrough:///temporal:7233
+    image: temporalio/admin-tools:${TEMPORAL_VERSION}
+    entrypoint: ["tail", "-f", "/dev/null"]
+    networks:
+      - xians-community-edition
+    restart: unless-stopped
   temporal-ui:
     container_name: temporal-ui
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -37,6 +92,7 @@ services:
       - xians-community-edition
     ports:
       - 8080:8080
+    restart: unless-stopped
 networks:
   xians-community-edition:
     external: true
