@@ -141,18 +141,6 @@ wait_for_healthy() {
     exit 1
 }
 
-# Ensure a container is running (for services without a healthcheck, e.g. Temporal).
-require_running() {
-    local name="$1" label="$2"
-    local status
-    status=$(container_status "$name")
-    if [ "$status" != "running" ]; then
-        echo "❌ ${label} container '${name}' is not running (status=${status}). Startup aborted."
-        echo "   Check logs with: docker logs ${name}"
-        exit 1
-    fi
-}
-
 # Start MongoDB and the XiansAi Server first (NOT Agent Studio yet — it needs the
 # bootstrapped API key which is only available once the server is healthy).
 echo "🔧 Starting MongoDB and XiansAi Server..."
@@ -191,12 +179,15 @@ fi
 
 # Start Temporal services
 echo "⚡ Starting Temporal services..."
-docker compose -p "$COMPOSE_PROJECT_NAME" -f temporal/docker-compose.yml --env-file temporal/.env.local up -d
+# The server only starts once the temporal-schema-setup job has created/migrated
+# its databases, so `up` fails here on e.g. a PostgreSQL auth failure.
+if ! docker compose -p "$COMPOSE_PROJECT_NAME" -f temporal/docker-compose.yml --env-file temporal/.env.local up -d; then
+    echo "❌ Temporal failed to start. Startup aborted."
+    echo "   Check logs with: docker logs temporal-schema-setup"
+    exit 1
+fi
 
-# Give Temporal a moment to boot, then abort if it already exited (e.g. a
-# PostgreSQL auth failure causes the auto-setup container to exit immediately).
-sleep 5
-require_running temporal "Temporal"
+wait_for_healthy temporal "Temporal" 30 5
 
 # Setup Temporal search attributes. This also waits for the Temporal server to be
 # ready, so a failure here means the workflow engine is not usable — abort rather

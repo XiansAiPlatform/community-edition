@@ -5,6 +5,23 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.37.1] - 2026-09-26
+
+### 🔧 Improvements
+
+- **Temporal upgraded to Server 1.32.0 / UI 2.54.1** (from 1.28.0 / 2.36.0). The deprecated `temporalio/auto-setup` image (no longer published past 1.29) is replaced by `temporalio/server`, with `temporalio/admin-tools` jobs that create/migrate the database schema and register the `default` namespace. A long-running `temporal-admin-tools` container provides the `temporal` CLI.
+- **Search attribute scripts** now use the `temporal` CLI through `temporal-admin-tools` instead of `tctl`, which is no longer shipped.
+
+### 🐛 Bug Fixes
+
+- **Server could not reach Temporal on Linux**: `server/.env.example` pointed `Temporal__FlowServerUrl` at `host.docker.internal:7233`, which does not resolve on Linux Docker. It now uses `temporal:7233` on the shared network.
+
+### ⚠️ Upgrade Notes
+
+- On Linux, change `Temporal__FlowServerUrl` in `server/.env.local` to `temporal:7233`.
+- Existing installs keep the versions pinned in `temporal/.env.local`. To upgrade, set `TEMPORAL_VERSION=1.32.0` and `TEMPORAL_UI_VERSION=2.54.1` there and run `./start-all.sh`; schema migrations are applied automatically and existing workflows are preserved.
+- Replace `docker exec temporal tctl ...` in your own tooling with `docker exec temporal-admin-tools temporal ...`.
+
 ## [v3.37.0] - 2026-09-18
 
 > **Overview**: This release adds **file attachments in messaging**, **agent-level access control**, an **admin audit trail**, **force-delete with data cleanup**, and **per-tenant Temporal isolation**. Agent Studio gets a **chat UI revamp**, participant **My Tasks** for HITL, and schedule workflow-input visibility. The .NET Lib adds **opt-in worker deployment versioning**, **Unicode agent/workflow names**, and a **prompt-defined agent** sample with MCP tools.

@@ -431,6 +431,12 @@ docker compose logs -f agent-studio
 - **Purpose**: Workflow orchestration
 - **Ports**: 8080 (UI), 7233 (gRPC)
 - **Visibility**: PostgreSQL-based (SQL) - no Elasticsearch required
+- **Images**: `temporalio/server`, `temporalio/admin-tools` and `temporalio/ui`,
+  versioned by `TEMPORAL_VERSION` / `TEMPORAL_UI_VERSION` in `temporal/.env.local`
+- **Schema**: The one-shot `temporal-schema-setup` container creates the
+  `temporal` and `temporal_visibility` databases and applies schema migrations on
+  every start, so raising `TEMPORAL_VERSION` upgrades an existing install in place
+- **CLI**: `docker exec temporal-admin-tools temporal ...`
 - **Search attributes**: Registered by `temporal/setup-search-attributes.sh`
   (`tenantId`, `userId`, `agent`, `idPostfix`)
 

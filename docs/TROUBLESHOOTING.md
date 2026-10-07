@@ -24,6 +24,7 @@ docker compose logs mongodb
 
 # Temporal / PostgreSQL run from their own compose files
 docker logs temporal
+docker logs temporal-schema-setup   # database creation / schema migrations
 docker logs postgresql
 
 # Follow logs in real-time
@@ -54,7 +55,8 @@ Error response from daemon: Conflict. The container name "/xians-mongodb" is alr
 ./stop-all.sh
 
 # If names are still held, remove the containers
-docker rm -f xians-mongodb xians-server xians-agent-studio temporal temporal-ui postgresql
+docker rm -f xians-mongodb xians-server xians-agent-studio temporal temporal-ui \
+  temporal-admin-tools temporal-schema-setup temporal-create-namespace postgresql
 
 # Restart
 ./start-all.sh
@@ -290,6 +292,32 @@ ad-hoc commands you type yourself.
 # Verify
 ./temporal/verify-search-attributes.sh
 ```
+
+The Temporal server image has no CLI, so run ad-hoc `temporal` commands in the
+`temporal-admin-tools` container (the old `tctl` tool is no longer shipped):
+
+```bash
+docker exec temporal-admin-tools temporal operator cluster health
+docker exec temporal-admin-tools temporal operator search-attribute list --namespace default
+```
+
+### Issue 12: Temporal Does Not Start After an Upgrade
+
+**Symptoms:** `start-all.sh` aborts with `service "temporal-schema-setup" didn't
+complete successfully`.
+
+**Solution:** The `temporal-schema-setup` job creates the Temporal databases and
+applies schema migrations before the server starts. Check why it failed:
+
+```bash
+docker logs temporal-schema-setup
+```
+
+A `password authentication failed` error means `POSTGRES_PASSWORD` in
+`temporal/.env.local` does not match the password the `postgresql-data` volume
+was created with. Copy the value from `postgresql/.env.local` into
+`temporal/.env.local`, or, if neither matches, remove the volume to start fresh
+(deletes Temporal history): `docker volume rm postgresql-data`.
 
 ## 🔧 Advanced Troubleshooting
 
