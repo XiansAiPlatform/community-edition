@@ -5,6 +5,88 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.39.0] - 2026-10-07
+
+> **Overview**: This release adds the **Xians Platform MCP**, **OIDC sign-in for the Admin API** with a capability matrix, **Data Explorer create and edit**, **conversation read status**, and **read-only view-as** for system admins. Agent Studio gains a **Temporal Workflows** page, **user-scoped secrets**, and clearer edit access for Participant Admins and Developers. Community Edition upgrades **Temporal to Server 1.32.0 / UI 2.54.1**.
+
+### 🚀 New Features
+
+- **Xians Platform MCP**: Admin API exposes `/api/v1/admin/mcp` for MCP clients authenticated with a Xians admin API key. Tools cover tenant, agent, activation, and workflow discovery; schedule create, list, timing updates, pause, resume, and delete; and Data Explorer list, save, and confirmed delete. Schedule and data calls take an explicit target and cannot override the authenticated tenant. Agent Studio shows the activation MCP URL under Connections and links API-key setup. Webhook tools (`list_webhooks`, `create_webhook`, `delete_webhook`) are activation-scoped, and credential-bearing webhook URLs stay protected.
+- **Admin API OIDC authentication and RBAC**: Clients can call the Admin API with a verified OIDC ID token in `X-User-Token` and no API key, when the user has an approved role in at least one tenant. This path is opt-in per tenant. API-key authentication is unchanged, and a token never upgrades an API-key request. Authorization uses a capability matrix (stored in MongoDB and overridable at runtime). Global user-permission actions stay non-delegable. Messaging and heartbeat endpoints remain API-key only.
+- **Data Explorer writes**: Admin API can create a document (`POST .../data`), partially update one (`PUT .../data/{recordId}`), and fetch one by id. Identity fields stay immutable on update; a duplicate type and key returns `409`. Agent Studio can create and edit records, and keeps identity fields read-only while editing.
+- **Conversation read status**: Threads can be marked read by timestamp or message id, and unread counts follow that cursor. Agent Studio tracks read state in the conversation view.
+- **View another user’s conversations**: System admins can open a tenant member’s thread read-only (`viewAsParticipantId`). Send, listen, delete, topic changes, and feedback stay blocked in the UI and on mutation APIs. Opening view-as writes an admin audit event; repeats for the same admin and target within an hour collapse into one row.
+- **Agent Studio — Temporal Workflows**: Tenant and system admins get a Temporal Workflows page under Agent Settings. After choosing an activation they can list runs (including sub-workflows, task workflows, and scheduled runs), filter them, and cancel or terminate a running workflow. Activity log filters follow Agent → Activation → Workflow.
+- **Agent Studio — user-scoped secrets**: The secrets settings page can manage user-scoped secrets as well as tenant and agent secrets, with a scope badge and participant lookup.
+- **Custom UI sample**: The server repo adds `samples/UI`, a React, Vite, and Tailwind app that signs in with OIDC and calls the Admin API with `X-User-Token` (no API key). Framework-agnostic notes describe what any custom admin UI needs to implement.
+- **Lib — workflow-safe activation APIs**: `AgentReference` existence and activation calls (`ExistsAsync`, list, create, activate, deactivate) run through Temporal activities, so workflow code can use them. Direct HTTP remains the path from activities and non-workflow code.
+
+### 🔧 Improvements
+
+- **Temporal upgraded to Server 1.32.0 / UI 2.54.1** (from 1.28.0 / 2.36.0). The deprecated `temporalio/auto-setup` image is replaced by `temporalio/server`, with `temporalio/admin-tools` jobs that create or migrate the schema and register the `default` namespace. A long-running `temporal-admin-tools` container provides the `temporal` CLI. Search-attribute scripts use that CLI instead of `tctl`.
+- **Participant Admin and Developer edit access**: With no explicit per-agent grant, Participant Admin and Developer roles get write-level access in Agent Studio. An explicit Read grant still denies edit. Tenant Admin and SysAdmin remain unrestricted.
+- **Prompt-defined agent uses Xians MCP**: The sample agent routes scheduling and Data Explorer work through the platform MCP, injects the current tenant, agent, and activation, and shows MCP calls in Agent Studio for chat and scheduled runs. The scheduled-prompt workflow stays hidden from the activation wizard.
+- **Lib activation parameter names**: Public method parameters previously named `idPostfix` are now `activationName`, matching the rest of the activation APIs. Temporal wire keys and `GetIdPostfix` are unchanged.
+- **MongoDB retention overrides**: Indexes that already define `expire_after` can take a deploy-time override (`MongoIndexes__{collection}__{indexName}__ExpireAfter`, for example `30d` or `12h`) without editing `mongodb-indexes.yaml`. Invalid values fall back to the YAML duration. Conversation message retention can be set the same way.
+- **Tenant disable confirmation**: Agent Studio asks before disabling a tenant. Disable deactivates every agent in that tenant, and turning the tenant back on does not reactivate them.
+- **Endpoint logging**: Endpoint loggers honor configured log levels instead of bypassing them.
+
+### 🐛 Bug Fixes
+
+- **Document identity on keyed saves**: `useKeyAsIdentifier` resolves the document to replace by agent, activation, and participant, not by tenant, type, and key alone. Separate activations no longer overwrite one shared document, and a caller cannot replace another agent’s record.
+- **Chat history for B2C users**: Participant id comparisons are case-consistent, so thread history and thread delete work when the authenticated participant id differs only by case.
+- **Tenant create cache**: Creating a tenant clears a cached “not found” entry for that id, so a lookup immediately after create no longer 404s for the negative-cache window.
+- **Admin audit log writes**: Null idempotency keys are omitted, and timestamps match MongoDB precision, so audit inserts no longer fail on those cases.
+- **Agent Studio — Skog and Fjord**: Dashboard page-title background matches the theme.
+
+### ⚠️ Breaking Changes
+
+- None required for a default API-key upgrade. Behavior and caller changes to plan for:
+  - **Lib named arguments**: Callers that pass `idPostfix:` must switch to `activationName:`. Positional calls are unaffected.
+  - **`useKeyAsIdentifier`**: Keyed document saves are scoped to agent, activation, and participant. Agents that previously shared one document across activations will each persist their own.
+  - **Participant Admin / Developer**: Those roles can edit agents they have no explicit grant on. Set an explicit Read grant where edit should stay denied.
+  - **Temporal CLI**: `docker exec temporal tctl ...` no longer works. Use `docker exec temporal-admin-tools temporal ...`.
+  - **Linux Temporal address**: `Temporal__FlowServerUrl` must be `temporal:7233`. `host.docker.internal` does not resolve on Linux Docker.
+
+### 🔒 Security Updates
+
+- **Agent Studio — integration path traversal**: Integration and webhook-url routes encode path segments before calling the backend, so a decoded `../` in an integration id cannot escape the tenant path.
+- **Agent Studio — `security.txt`**: Publishes `/.well-known/security.txt`.
+- **View-as**: History and topics require a system admin and a member of the current tenant. Mutations with `viewAsParticipantId` return `403`. Each view-as session is audited.
+- **MCP webhooks**: Shared credentials and credential-bearing webhook URLs are not returned to MCP clients. Deletes require confirmation.
+- **Admin API capabilities**: ID-token access is opt-in per tenant. Global user-permission capabilities cannot be delegated through the matrix.
+
+### 📋 Migration Guide
+
+#### From v3.37.0 to v3.38.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. **Temporal**: In `temporal/.env.local`, set `TEMPORAL_VERSION=1.32.0` and `TEMPORAL_UI_VERSION=2.54.1`. Schema migration runs on startup and existing workflows are kept.
+4. **Linux**: In `server/.env.local`, set `Temporal__FlowServerUrl=temporal:7233`.
+5. Start with the new image tag:
+  ```bash
+   ./start-all.sh -v v3.38.0
+  ```
+6. **Optional — Admin API OIDC**: Enable the per-tenant admin-console OIDC config only if clients should call the Admin API with an ID token (`X-User-Token`) instead of an API key. Existing API keys keep working.
+7. **Optional — retention**: Set `MongoIndexes__{collection}__{indexName}__ExpireAfter` only for indexes that already expire, then restart the server.
+8. **SDK consumers**: Upgrade `XiansAi.Lib`. Rename named `idPostfix` arguments to `activationName`. Agents that relied on a single keyed document across activations should review `useKeyAsIdentifier` data after upgrade.
+
+No manual database migration is required. The capability matrix collection and audit-log indexes are created by the server.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.37.0...v3.38.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.37.0...v3.38.0)  
+**Component changelogs**: [XiansAi Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.37.0...v3.38.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.37.0...v3.38.0) · [XiansAi.Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.37.0...v3.38.0)  
+**Docker Images**: `v3.38.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
 ## [v3.37.1] - 2026-09-26
 
 ### 🔧 Improvements
