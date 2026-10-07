@@ -85,7 +85,8 @@ export VERSION=v3.31.0
 # Test the publishing process
 ./scripts/publish.sh $VERSION --dry-run
 
-# Publish artifacts across all repositories
+# Publish artifacts across all repositories.
+# Tags origin/main in each repo, not the local checkout.
 ./scripts/publish.sh $VERSION
 ```
 
@@ -102,7 +103,8 @@ export VERSION=v3.31.0
 #### 4. **Create Community Edition Release**
 
 ```bash
-# After all artifacts are published successfully
+# After all artifacts are published successfully.
+# Fast-forwards local main to origin/main, then tags that commit.
 ./scripts/release.sh $VERSION
 ```
 

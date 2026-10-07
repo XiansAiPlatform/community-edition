@@ -66,9 +66,9 @@ XiansAi Platform Multi-Repository Publishing Script
 Usage: $0 [OPTIONS] VERSION
 
 This script coordinates publishing across all XiansAi repositories by:
-1. Creating version tags in each repository
-2. Pushing tags to trigger GitHub Actions workflows
-3. Monitoring publishing progress
+1. Fetching origin/main in each repository
+2. Creating the version tag on that commit (not the local checkout)
+3. Pushing the tag to trigger GitHub Actions workflows
 4. Preparing for community edition release
 
 OPTIONS:
@@ -127,21 +127,12 @@ check_repository() {
         return 1
     fi
     
-    # Check if repo has uncommitted changes
+    # Local edits are not part of the release. The tag is placed on origin/main.
     cd "$repo_path"
     if [[ -n $(git status --porcelain) ]]; then
-        log_warning "$repo_name has uncommitted changes"
-        if [[ "$FORCE" != "true" ]]; then
-            read -p "Continue anyway? (y/N): " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                log_error "Publishing cancelled due to uncommitted changes in $repo_name"
-                cd - >/dev/null
-                return 1
-            fi
-        fi
+        log_warning "$repo_name has uncommitted changes on $(git branch --show-current). They are not included; the tag is placed on origin/main."
     fi
-    
+
     cd - >/dev/null
     return 0
 }
@@ -169,47 +160,130 @@ validate_repositories() {
     log_success "Repository validation completed"
 }
 
-# Create and push tag to a repository
+# Move the local main branch to origin/main when that is a fast-forward.
+# The checked-out branch is left alone when it is not main.
+sync_local_main() {
+    local repo_name=$1
+
+    if ! git show-ref --verify --quiet refs/heads/main; then
+        git branch main origin/main
+        log_info "Created local main in $repo_name at origin/main"
+        return 0
+    fi
+
+    if ! git merge-base --is-ancestor main origin/main; then
+        log_warning "Local main in $repo_name has commits that are not on origin/main. Left local main unchanged."
+        return 0
+    fi
+
+    if [[ "$(git branch --show-current)" == "main" ]]; then
+        if git merge --ff-only origin/main; then
+            log_info "Fast-forwarded local main in $repo_name to origin/main"
+        else
+            log_warning "Could not fast-forward the checked-out main branch in $repo_name. The tag still points at origin/main."
+        fi
+        return 0
+    fi
+
+    git branch -f main origin/main
+    log_info "Updated local main in $repo_name to origin/main"
+}
+
+# Delete an existing version tag locally and on origin when the caller agrees.
+# Returns 0 to continue, 2 when the existing tag should be kept.
+remove_existing_tag() {
+    local repo_name=$1
+    local version=$2
+    local local_exists=false
+    local remote_exists=false
+
+    if git show-ref --verify --quiet "refs/tags/$version"; then
+        local_exists=true
+    fi
+    if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
+        remote_exists=true
+    fi
+
+    if [[ "$local_exists" == false && "$remote_exists" == false ]]; then
+        return 0
+    fi
+
+    log_warning "Tag $version already exists in $repo_name"
+    if [[ "$FORCE" != "true" ]]; then
+        read -p "Delete and recreate tag on origin/main? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_warning "Skipping $repo_name (tag exists)"
+            return 2
+        fi
+    fi
+
+    if [[ "$local_exists" == true ]]; then
+        git tag -d "$version"
+    fi
+    if [[ "$remote_exists" == true ]]; then
+        git push origin --delete "$version"
+    fi
+    return 0
+}
+
+# Create and push a tag pointing at the latest origin/main commit.
 tag_repository() {
     local repo_path=$1
     local repo_name=$2
     local version=$3
-    
-    log_repo "Tagging $repo_name with $version..."
-    
+    local target
+    local short_target
+    local branch
+    local remove_status
+
+    log_repo "Tagging $repo_name with $version at origin/main..."
+
+    cd "$repo_path"
+
+    log_info "Fetching origin/main for $repo_name..."
+    git fetch origin +main:refs/remotes/origin/main
+
+    if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+        log_error "origin/main not found in $repo_name"
+        cd - >/dev/null
+        return 1
+    fi
+
+    target=$(git rev-parse origin/main)
+    short_target=$(git rev-parse --short "$target")
+    branch=$(git branch --show-current)
+
+    if [[ "$(git rev-parse HEAD)" != "$target" ]]; then
+        log_warning "$repo_name local HEAD ($(git rev-parse --short HEAD), branch $branch) is not origin/main ($short_target). Tagging origin/main."
+    else
+        log_info "$repo_name local HEAD matches origin/main ($short_target)"
+    fi
+
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY RUN] Would tag $repo_name with $version"
+        log_info "[DRY RUN] Would fast-forward local main when possible and tag origin/main ($short_target) as $version"
+        cd - >/dev/null
         return 0
     fi
-    
-    cd "$repo_path"
-    
-    # Check if tag already exists
-    if git tag -l | grep -q "^$version$"; then
-        log_warning "Tag $version already exists in $repo_name"
-        if [[ "$FORCE" != "true" ]]; then
-            read -p "Delete and recreate tag? (y/N): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                git tag -d "$version"
-                git push origin --delete "$version" 2>/dev/null || true
-            else
-                log_warning "Skipping $repo_name (tag exists)"
-                cd - >/dev/null
-                return 0
-            fi
-        else
-            git tag -d "$version"
-            git push origin --delete "$version" 2>/dev/null || true
-        fi
+
+    sync_local_main "$repo_name"
+
+    remove_status=0
+    remove_existing_tag "$repo_name" "$version" || remove_status=$?
+    if [[ "$remove_status" -eq 2 ]]; then
+        cd - >/dev/null
+        return 0
     fi
-    
-    # Create and push tag
-    git tag -a "$version" -m "Release $version"
+    if [[ "$remove_status" -ne 0 ]]; then
+        cd - >/dev/null
+        return 1
+    fi
+
+    git tag -a "$version" "$target" -m "Release $version"
     git push origin "$version"
-    
+
     cd - >/dev/null
-    log_success "Tagged $repo_name with $version"
+    log_success "Tagged $repo_name origin/main ($short_target) as $version"
 }
 
 # Get GitHub Actions run URL for monitoring
@@ -387,8 +461,8 @@ main() {
     
     # Confirmation
     if [[ "$FORCE" != "true" && "$DRY_RUN" != "true" ]]; then
-        echo "This will tag and trigger publishing for all repositories."
-        echo "Make sure all repositories are ready for release."
+        echo "This will tag origin/main in each repository and trigger publishing."
+        echo "Local checkouts are updated to that commit. Unpushed local commits are not tagged."
         echo
         read -p "Proceed with publishing? (y/N): " -n 1 -r
         echo

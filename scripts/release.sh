@@ -175,18 +175,11 @@ check_prerequisites() {
         exit 1
     fi
     
-    # Check if we're on main branch
+    # Tags are created from main after it is fast-forwarded to origin/main.
     current_branch=$(git branch --show-current)
     if [[ "$current_branch" != "main" ]]; then
-        log_warning "Not on main branch (current: $current_branch)"
-        if [[ "$FORCE" != "true" ]]; then
-            read -p "Continue anyway? (y/N): " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                log_error "Release cancelled"
-                exit 1
-            fi
-        fi
+        log_error "Releases are created from main. Current branch is $current_branch."
+        exit 1
     fi
     
     # Check GitHub CLI
@@ -253,22 +246,68 @@ validate_docker_images() {
     done
 }
 
+# Fast-forward this checkout to origin/main before the release commit and tag.
+sync_to_origin_main() {
+    log_info "Fetching origin/main..."
+    git fetch origin +main:refs/remotes/origin/main
+
+    local branch
+    branch=$(git branch --show-current)
+    if [[ "$branch" != "main" ]]; then
+        log_error "Releases are created from main. Current branch is $branch."
+        exit 1
+    fi
+
+    local remote_sha
+    remote_sha=$(git rev-parse --short origin/main)
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        if [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]; then
+            log_info "[DRY RUN] Local main already matches origin/main ($remote_sha)"
+        elif git merge-base --is-ancestor HEAD origin/main; then
+            log_info "[DRY RUN] Would fast-forward local main to origin/main ($remote_sha)"
+        else
+            log_error "Local main cannot fast-forward to origin/main ($remote_sha). Unpushed local commits are not released."
+            exit 1
+        fi
+        return
+    fi
+
+    if [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]; then
+        log_success "Local main matches origin/main ($remote_sha)"
+        return
+    fi
+
+    if ! git merge-base --is-ancestor HEAD origin/main; then
+        log_error "Local main cannot fast-forward to origin/main ($remote_sha). Push or discard local commits before releasing."
+        exit 1
+    fi
+
+    if ! git merge --ff-only origin/main; then
+        log_error "Could not fast-forward local main to origin/main ($remote_sha)."
+        exit 1
+    fi
+
+    log_success "Fast-forwarded local main to origin/main ($remote_sha)"
+}
+
 # Create git tag
 create_git_tag() {
     local version=$1
     local tag_message="Release $version"
-    
+
     log_info "Creating git tag: $version"
-    
+
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY RUN] Would create tag: $version"
+        log_info "[DRY RUN] Would tag main ($(git rev-parse --short origin/main), plus the changelog commit) as $version and push it"
         return
     fi
-    
+
     git tag -a "$version" -m "$tag_message"
+    git push origin HEAD
     git push origin "$version"
-    
-    log_success "Git tag created and pushed"
+
+    log_success "Git tag created on main ($(git rev-parse --short HEAD)) and pushed"
 }
 
 # Create GitHub release
@@ -456,12 +495,13 @@ main() {
     check_prerequisites
     check_release_notes "$version"
     validate_docker_images "$version"
-    
+    sync_to_origin_main
+
     if [[ "$DRY_RUN" != "true" ]]; then
         update_changelog "$version"
         git commit -m "chore: update changelog for $version" || true
     fi
-    
+
     create_git_tag "$version"
     
     if [[ "$NO_GITHUB" != "true" ]]; then
