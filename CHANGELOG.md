@@ -5,6 +5,65 @@ All notable changes to the XiansAi Platform Community Edition will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.40.0] - 2026-10-15
+
+> **Overview**: This release deactivates a tenant’s agents when the tenant is disabled, adds **tenant notification contacts**, an **audit-log action filter**, and optional **verified-email sign-in** in Agent Studio. Admin API calls for an unknown tenant no longer log an unhandled exception, and duplicate knowledge uploads no longer fail with a server error.
+
+### 🚀 New Features
+
+- **Disable tenant deactivates its agents**: Saving a tenant with `enabled: false` (Web API `PUT /tenants/{id}` or Admin API `PATCH /api/v1/admin/tenants/{tenantId}`) queues a background job that deactivates each active activation. The job cancels workflows, deletes schedules, sets `active: false`, and emits `activation.deactivated`. One failure does not stop the rest. Sending `enabled: false` again retries agents that failed last time. Re-enabling the tenant does not reactivate its agents. The queue is in memory, so a server restart drops a job that has not started.
+- **Agent Studio — disable confirmation**: System Admin → Tenants asks before disabling a tenant. The dialog states that users lose access, how many active agents will be deactivated, and that turning the tenant back on does not restore those agents. Enable still applies immediately.
+- **Tenant notification contacts**: Tenant admins can manage contacts (name, email, phone) at `/api/v1/admin/tenants/{tenantId}/contacts` (`GET` with optional `search`, `GET /{id}`, `POST`, `PATCH /{id}`, `DELETE /{id}`). Email is stored lowercase; a duplicate email in the tenant returns `409`. Capabilities are `tenant.contacts.list|get|create|update|delete` and can be delegated. Deleting a tenant also removes its contacts.
+- **Audit log action filter**: `GET /api/v1/admin/tenants/{tenantId}/audit-logs` accepts an optional `action` query parameter (exact match) alongside the existing filters. `GET .../audit-logs/actions` lists the tenant’s distinct actions for the dropdown. Agent Studio’s Audit Log page adds an Action filter, stored in the URL so it survives reload and shared links.
+- **Agent Studio — verified email sign-in**: Optional per-provider gate that refuses sign-in unless the ID token proves the email is verified, mitigating cross-tenant nOAuth when an IdP lets a tenant admin set any `email` claim. Off by default (`AUTH_ALLOW_UNVERIFIED_EMAIL` unset or `true`). Per provider (Entra, B2C, Google, Keycloak, Visma Connect): `<PREFIX>_ALLOW_UNVERIFIED_EMAIL`, `<PREFIX>_VERIFY_CLAIMS`, `<PREFIX>_TRUSTED_CLAIM`, and `<PREFIX>_TRUSTED_VALUES`. Local development login is unchanged. An invalid configuration for a provider refuses every sign-in for that provider until it is fixed.
+
+### 🔧 Improvements
+
+- **Admin request latency**: App integration indexes are no longer created on every authenticated request. That `createIndexes` call was on the auth path and could stall the tasks page (p50 up to several seconds) under polling. Tenant checks in the auth handler now use the singleton tenant cache instead of building the full tenant-service graph on each request.
+- **Agent Studio — branding**: The branding page accepts a logo by drag-and-drop and reloads branding when the active tenant changes.
+
+### 🐛 Bug Fixes
+
+- **Duplicate knowledge creates**: Re-posting identical knowledge to `POST /api/agent/knowledge` or `POST /api/v1/admin/tenants/{tenantId}/knowledge` returns the existing document (`200` on the admin route) instead of a duplicate-key `500`. The same key with different content still returns `409`. Concurrent identical creates leave one row.
+- **Unknown tenant on the Admin API**: A SysAdmin request for a tenant that does not exist still returns `404`, without an error-level “unhandled exception” log. A malformed tenant id returns `400` instead of `401`. Existing tenants and invalid API keys are unchanged.
+
+### ⚠️ Breaking Changes
+
+- None required for a default upgrade. Behavior to plan for:
+  - **Disabling a tenant** deactivates every active agent. Re-enabling the tenant does not turn those agents back on. Activate them again deliberately.
+  - **Malformed Admin API tenant ids** now return `400` for a SysAdmin caller. They previously returned `401`.
+  - **Identical knowledge uploads** return the existing document instead of an error. A conflicting version still returns `409`.
+  - **Email verification** stays off unless you set it. A provider with verification required and an invalid claim configuration refuses all sign-ins for that provider.
+
+### 📋 Migration Guide
+
+#### From v3.39.0 to v3.40.0
+
+1. Stop the platform:
+  ```bash
+   ./stop-all.sh
+  ```
+2. Pull the latest community-edition configuration and release notes:
+  ```bash
+   git pull origin main
+  ```
+3. Start with the new image tag:
+  ```bash
+   ./start-all.sh -v v3.40.0
+  ```
+4. **Tenant disable**: After upgrade, disabling a tenant deactivates its agents in the background. Confirm the dialog in Agent Studio before disabling a production tenant. If the server restarts while a job is queued, disable the tenant again to retry.
+5. **Optional — verified email**: To require a verified email for an identity provider, set that provider’s `ALLOW_UNVERIFIED_EMAIL=false` and `VERIFY_CLAIMS` (or a trusted claim and values) in Agent Studio, then restart Studio. Leave the variables unset to keep current sign-in behavior.
+6. **SDK consumers**: `XiansAi.Lib` has no changes in this release relative to v3.39.0.
+
+No manual database migration is required. Contact indexes are created by the server on startup.
+
+---
+
+**Full Changelog**: [https://github.com/XiansAiPlatform/community-edition/compare/v3.39.0...v3.40.0](https://github.com/XiansAiPlatform/community-edition/compare/v3.39.0...v3.40.0)  
+**Component changelogs**: [XiansAi Server](https://github.com/XiansAiPlatform/XiansAi.Server/compare/v3.39.0...v3.40.0) · [Agent Studio](https://github.com/XiansAiPlatform/agent-studio/compare/v3.39.0...v3.40.0) · [XiansAi.Lib](https://github.com/XiansAiPlatform/XiansAi.Lib/compare/v3.39.0...v3.40.0)  
+**Docker Images**: `v3.40.0` on Docker Hub (`99xio/`*)  
+**Documentation**: [XiansAi Docs](https://xiansaiplatform.github.io/XiansAi.Docs/)
+
 ## [v3.39.0] - 2026-10-07
 
 > **Overview**: This release adds the **Xians Platform MCP**, **OIDC sign-in for the Admin API** with a capability matrix, **Data Explorer create and edit**, **conversation read status**, and **read-only view-as** for system admins. Agent Studio gains a **Temporal Workflows** page, **user-scoped secrets**, and clearer edit access for Participant Admins and Developers. Community Edition upgrades **Temporal to Server 1.32.0 / UI 2.54.1**.
